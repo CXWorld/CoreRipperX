@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CoreRipperX": {
+      "commandName": "Project",
+      "commandLineArgs": "5"
+    }
+  }
+}
