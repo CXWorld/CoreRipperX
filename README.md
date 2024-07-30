@@ -14,7 +14,7 @@ CoreRipperX is a small CPU stress-testing tool designed to evaluate the performa
 - **.NET 8**: https://dotnet.microsoft.com/en-us/download/dotnet/8.0
 
 ## Installation
-1. **Download**: Obtain the latest release from the [CoreRipperX GitHub repository](https://github.com/your-repo/CoreRipperX/releases).
+1. **Download**: Obtain the latest release from the [[CoreRipperX GitHub repository](https://github.com/CXWorld/CoreRipperX/releases)].
 2. **Extract**: Unzip the downloaded file to your desired location.
 
 ## Usage
@@ -38,7 +38,7 @@ To run CoreRipperX with a time period of 30 seconds per core:
 CoreRipperX is licensed under the MIT License. See the `LICENSE` file for more details.
 
 ## Contact
-For issues, questions, or suggestions, please open an issue on the [GitHub repository](https://github.com/your-repo/CoreRipperX/issues).
+For issues, questions, or suggestions, please open an issue on the [GitHub repository](https://github.com/CXWorld/CoreRipperX/issues).
 
 ---
 
