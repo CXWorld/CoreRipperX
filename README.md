@@ -11,7 +11,7 @@ CoreRipperX is a small CPU stress-testing tool designed to evaluate the performa
 ## Requirements
 - **Operating System**: Windows, Linux, or macOS
 - **CPU**: Processor with AVX2 support
-- **.NET 8: https://dotnet.microsoft.com/en-us/download/dotnet/8.0
+- **.NET 8**: https://dotnet.microsoft.com/en-us/download/dotnet/8.0
 
 ## Installation
 1. **Download**: Obtain the latest release from the [CoreRipperX GitHub repository](https://github.com/your-repo/CoreRipperX/releases).
