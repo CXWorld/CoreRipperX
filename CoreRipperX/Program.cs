@@ -1,5 +1,8 @@
 ﻿using System.Runtime.InteropServices;
 
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
+
 namespace CoreRipperX
 {
     internal class Program
@@ -10,8 +13,6 @@ namespace CoreRipperX
         [DllImport("Kernel32.dll")]
         public static extern IntPtr GetCurrentThread();
 
-        [DllImport("AVX2Operations.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void PerformHeavyLoad();
 
         static void Main(string[] args)
         {
@@ -57,7 +58,11 @@ namespace CoreRipperX
                 {
                     token.ThrowIfCancellationRequested();
                     // Call the AVX2 function
-                    PerformHeavyLoad();
+                    var vec = Vector256<int>.Zero;
+                    for (int i = 0; i < 1000000000; i++)
+                    {
+                        vec = Avx2.Add(vec, Vector256<int>.One);
+                    }
                 }
             }
             catch (OperationCanceledException)
