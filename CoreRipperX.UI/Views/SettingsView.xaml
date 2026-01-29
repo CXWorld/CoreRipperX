@@ -1,0 +1,144 @@
+<UserControl x:Class="CoreRipperX.UI.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:viewmodels="clr-namespace:CoreRipperX.UI.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=viewmodels:SettingsViewModel}">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="32" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Settings Card -->
+        <materialDesign:Card Grid.Row="0" Padding="24">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="24" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="24" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="24" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Polling Rate Setting -->
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           Text="Polling Rate (ms)"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource MaterialDesignBody1TextBlock}" />
+                <ComboBox Grid.Row="0" Grid.Column="1"
+                          ItemsSource="{Binding Settings.AvailablePollingRates}"
+                          SelectedItem="{Binding Settings.PollingRateMs}"
+                          Width="120"
+                          HorizontalAlignment="Left"
+                          Style="{StaticResource MaterialDesignOutlinedComboBox}" />
+
+                <!-- Runtime Setting -->
+                <TextBlock Grid.Row="2" Grid.Column="0"
+                           Text="Runtime per Cycle (seconds)"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource MaterialDesignBody1TextBlock}" />
+                <TextBox Grid.Row="2" Grid.Column="1"
+                         Text="{Binding Settings.RuntimePerCycleSeconds, UpdateSourceTrigger=PropertyChanged}"
+                         Width="120"
+                         HorizontalAlignment="Left"
+                         materialDesign:HintAssist.Hint="Seconds"
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}" />
+
+                <!-- Deviation Threshold Setting -->
+                <TextBlock Grid.Row="4" Grid.Column="0"
+                           Text="Critical Deviation (%)"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource MaterialDesignBody1TextBlock}" />
+                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
+                    <Slider Value="{Binding Settings.CriticalDeviationPercent}"
+                            Minimum="1"
+                            Maximum="50"
+                            Width="200"
+                            VerticalAlignment="Center"
+                            TickFrequency="1"
+                            IsSnapToTickEnabled="True" />
+                    <TextBlock Text="{Binding Settings.CriticalDeviationPercent, StringFormat=N0}"
+                               Margin="16,0,0,0"
+                               Width="30"
+                               VerticalAlignment="Center"
+                               Style="{StaticResource MaterialDesignBody1TextBlock}" />
+                    <TextBlock Text="%"
+                               VerticalAlignment="Center"
+                               Style="{StaticResource MaterialDesignBody1TextBlock}" />
+                </StackPanel>
+
+                <!-- Algorithm Selection -->
+                <TextBlock Grid.Row="6" Grid.Column="0"
+                           Text="Algorithm"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource MaterialDesignBody1TextBlock}" />
+                <ComboBox Grid.Row="6" Grid.Column="1"
+                          ItemsSource="{Binding Settings.AvailableAlgorithms}"
+                          SelectedItem="{Binding Settings.SelectedAlgorithm}"
+                          Width="200"
+                          HorizontalAlignment="Left"
+                          Style="{StaticResource MaterialDesignOutlinedComboBox}" />
+            </Grid>
+        </materialDesign:Card>
+
+        <!-- Stress Test Control Card -->
+        <materialDesign:Card Grid.Row="2" Padding="24">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="16" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Status -->
+                <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
+                    <TextBlock Text="Stress Test" Style="{StaticResource MaterialDesignHeadline6TextBlock}" />
+                    <TextBlock Text="{Binding Status}"
+                               Margin="0,8,0,0"
+                               Style="{StaticResource MaterialDesignBody2TextBlock}"
+                               Opacity="0.7" />
+                </StackPanel>
+
+                <!-- Progress Bar -->
+                <ProgressBar Grid.Row="2" Grid.Column="0"
+                             Value="{Binding Progress}"
+                             Maximum="100"
+                             Height="8"
+                             Margin="0,0,24,0"
+                             VerticalAlignment="Center" />
+
+                <!-- Buttons -->
+                <Button Grid.Row="2" Grid.Column="1"
+                        Command="{Binding StartCommand}"
+                        Content="START"
+                        Margin="0,0,8,0"
+                        Style="{StaticResource MaterialDesignRaisedButton}" />
+
+                <Button Grid.Row="2" Grid.Column="2"
+                        Command="{Binding StopCommand}"
+                        Content="STOP"
+                        Style="{StaticResource MaterialDesignOutlinedButton}" />
+            </Grid>
+        </materialDesign:Card>
+    </Grid>
+</UserControl>

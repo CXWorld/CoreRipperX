@@ -1,0 +1,18 @@
+using CoreRipperX.Core.Models;
+
+namespace CoreRipperX.Core.Services;
+
+public interface IHardwareMonitorService : IDisposable
+{
+    string CpuName { get; }
+    int PhysicalCoreCount { get; }
+    int LogicalCoreCount { get; }
+    int SensorCount { get; }
+    string? LastError { get; }
+
+    IObservable<IReadOnlyList<CoreData>> CoreDataStream { get; }
+
+    void StartMonitoring(TimeSpan interval);
+    void StopMonitoring();
+    IReadOnlyList<CoreData> GetCurrentCoreData();
+}

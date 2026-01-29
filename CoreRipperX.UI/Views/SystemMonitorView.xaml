@@ -1,0 +1,235 @@
+<UserControl x:Class="CoreRipperX.UI.Views.SystemMonitorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:viewmodels="clr-namespace:CoreRipperX.UI.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=viewmodels:SystemMonitorViewModel}">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- CPU Info Panel -->
+        <materialDesign:Card Grid.Row="0" Padding="16">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="CPU" Style="{StaticResource MaterialDesignCaptionTextBlock}" Opacity="0.7" />
+                        <TextBlock Text="{Binding CpuName}" Style="{StaticResource MaterialDesignHeadline6TextBlock}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Margin="32,0">
+                        <TextBlock Text="Physical Cores" Style="{StaticResource MaterialDesignCaptionTextBlock}" Opacity="0.7" />
+                        <TextBlock Text="{Binding PhysicalCoreCount}" Style="{StaticResource MaterialDesignHeadline6TextBlock}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Margin="32,0">
+                        <TextBlock Text="Logical Cores" Style="{StaticResource MaterialDesignCaptionTextBlock}" Opacity="0.7" />
+                        <TextBlock Text="{Binding LogicalCoreCount}" Style="{StaticResource MaterialDesignHeadline6TextBlock}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="3" Margin="32,0">
+                        <TextBlock Text="Sensors" Style="{StaticResource MaterialDesignCaptionTextBlock}" Opacity="0.7" />
+                        <TextBlock Text="{Binding SensorCount}" Style="{StaticResource MaterialDesignHeadline6TextBlock}" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Error display -->
+                <TextBlock Text="{Binding LastError}"
+                           Foreground="#FF5252"
+                           TextWrapping="Wrap"
+                           Margin="0,8,0,0" />
+            </StackPanel>
+        </materialDesign:Card>
+
+        <!-- Stress Test Status Panel -->
+        <materialDesign:Card Grid.Row="2" Padding="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Running indicator -->
+                <ProgressBar Grid.Column="0"
+                             Style="{StaticResource MaterialDesignCircularProgressBar}"
+                             IsIndeterminate="True"
+                             Width="20" Height="20"
+                             Margin="0,0,12,0"
+                             Visibility="{Binding IsStressTestRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                <!-- Status text -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding StressTestStatus}"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource MaterialDesignBody1TextBlock}" />
+
+                <!-- Error count -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="16,0">
+                    <TextBlock Text="Errors: "
+                               VerticalAlignment="Center"
+                               Style="{StaticResource MaterialDesignBody2TextBlock}"
+                               Opacity="0.7" />
+                    <TextBlock Text="{Binding StressTestErrorCount}"
+                               VerticalAlignment="Center"
+                               FontWeight="Bold">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource MaterialDesignBody1TextBlock}">
+                                <Setter Property="Foreground" Value="#FF5252" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StressTestErrorCount}" Value="0">
+                                        <Setter Property="Foreground" Value="#00E676" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- Cancel button -->
+                <Button Grid.Column="3"
+                        Content="Cancel"
+                        Command="{Binding CancelStressTestCommand}"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Padding="16,4"
+                        Visibility="{Binding IsStressTestRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            </Grid>
+        </materialDesign:Card>
+
+        <!-- Core Data Grid -->
+        <DataGrid Grid.Row="4"
+                  ItemsSource="{Binding Cores}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  CanUserReorderColumns="False"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="Horizontal"
+                  SelectionMode="Single"
+                  SelectionUnit="FullRow">
+
+            <DataGrid.Resources>
+                <ContextMenu x:Key="RowContextMenu">
+                    <MenuItem Header="{Binding CoreLabel, StringFormat='Stress Test {0}'}"
+                              Command="{Binding PlacementTarget.Tag.StressTestCoreCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                              CommandParameter="{Binding}" />
+                    <Separator />
+                    <MenuItem Header="Cancel Stress Test"
+                              Command="{Binding PlacementTarget.Tag.CancelStressTestCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                </ContextMenu>
+            </DataGrid.Resources>
+
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="ContextMenu" Value="{StaticResource RowContextMenu}" />
+                    <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsCurrentlyTesting}" Value="True">
+                            <Setter Property="Background" Value="#FFFFAB40" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Core"
+                                    Binding="{Binding CoreLabel}"
+                                    Width="100" />
+
+                <DataGridTextColumn Header="Clock (MHz)"
+                                    Binding="{Binding ClockSpeed, StringFormat=N0}"
+                                    Width="120">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="Margin" Value="0,0,8,0" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Eff. 1T (MHz)"
+                                    Binding="{Binding EffectiveClockSpeed, StringFormat=N0}"
+                                    Width="110">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="Margin" Value="0,0,8,0" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Eff. 2T (MHz)"
+                                    Binding="{Binding EffectiveClockSpeed2T, StringFormat=N0}"
+                                    Width="110">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="Margin" Value="0,0,8,0" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Deviation %"
+                                    Binding="{Binding DeviationPercent, StringFormat='+0.0;-0.0;0.0'}"
+                                    Width="120">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="Margin" Value="0,0,8,0" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDeviationCritical}" Value="True">
+                                    <Setter Property="Foreground" Value="#FF5252" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsDeviationCritical}" Value="False">
+                                    <Setter Property="Foreground" Value="#00E676" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Load 1T %"
+                                    Binding="{Binding Load1T, StringFormat=N0}"
+                                    Width="100">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="Margin" Value="0,0,8,0" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
+                <DataGridTextColumn Header="Load 2T %"
+                                    Binding="{Binding Load2T, StringFormat=N0}"
+                                    Width="100">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="Margin" Value="0,0,8,0" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>
