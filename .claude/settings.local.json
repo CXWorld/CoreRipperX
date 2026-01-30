@@ -20,7 +20,14 @@
       "Bash(cmd.exe /c \"cd reference\\\\CapFrameX && msbuild -t:restore CapFrameX.sln\")",
       "Bash(cmd.exe /c \"where msbuild\")",
       "Bash(curl:*)",
-      "Bash(\"C:/Users/CAPFRA~1/AppData/Local/Temp/claude/E--Code-CoreRipperX/949d6411-9976-4c37-9ef1-190870a3c432/scratchpad/nuget.exe\" restore \"reference/CapFrameX/CapFrameX.sln\")"
+      "Bash(\"C:/Users/CAPFRA~1/AppData/Local/Temp/claude/E--Code-CoreRipperX/949d6411-9976-4c37-9ef1-190870a3c432/scratchpad/nuget.exe\" restore \"reference/CapFrameX/CapFrameX.sln\")",
+      "Bash(dotnet restore:*)",
+      "Bash(cmd.exe /c \"where nuget.exe 2>nul || where msbuild.exe 2>nul || echo Not found in PATH\")",
+      "Bash(cmd.exe /c \"dir /s /b \"\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\*MSBuild.exe\"\" 2>nul | findstr /i \"\"current\"\"\")",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell:*)",
+      "Bash(grep:*)",
+      "Bash(git pull:*)"
     ]
   }
 }

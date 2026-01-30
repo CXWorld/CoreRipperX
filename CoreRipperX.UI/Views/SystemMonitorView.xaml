@@ -54,6 +54,14 @@
                            Foreground="#FF5252"
                            TextWrapping="Wrap"
                            Margin="0,8,0,0" />
+
+                <!-- Diagnostic info (temporary) -->
+                <Expander Header="Diagnostic Info" Margin="0,8,0,0" IsExpanded="False">
+                    <TextBlock Text="{Binding DiagnosticInfo}"
+                               FontFamily="Consolas"
+                               FontSize="11"
+                               TextWrapping="Wrap" />
+                </Expander>
             </StackPanel>
         </materialDesign:Card>
 

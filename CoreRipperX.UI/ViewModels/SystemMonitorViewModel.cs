@@ -32,6 +32,9 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
     private string? _lastError;
 
     [ObservableProperty]
+    private string? _diagnosticInfo;
+
+    [ObservableProperty]
     private string _stressTestStatus = string.Empty;
 
     [ObservableProperty]
@@ -84,6 +87,7 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
     {
         SensorCount = _hardwareService.SensorCount;
         LastError = _hardwareService.LastError;
+        DiagnosticInfo = _hardwareService.DiagnosticInfo;
 
         // Update CPU info if not set
         if (CpuName == "Loading..." || CpuName == "Unknown CPU")

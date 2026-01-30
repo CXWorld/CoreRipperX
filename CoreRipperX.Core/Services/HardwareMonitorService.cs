@@ -22,15 +22,13 @@ public class HardwareMonitorService : IHardwareMonitorService
     public int LogicalCoreCount { get; private set; }
     public int SensorCount { get; private set; }
     public string? LastError { get; private set; }
+    public string? DiagnosticInfo { get; private set; }
 
     public IObservable<IReadOnlyList<CoreData>> CoreDataStream => _coreDataSubject.AsObservable();
 
     public HardwareMonitorService()
     {
-        _computer = new Computer
-        {
-            IsCpuEnabled = true
-        };
+        _computer = new Computer();
     }
 
     private List<ISensor> GetAllSensors()
@@ -52,16 +50,32 @@ public class HardwareMonitorService : IHardwareMonitorService
 
         try
         {
+            // Important: Open() first, then enable hardware types (like CapFrameX does)
             _computer.Open();
+            _computer.IsCpuEnabled = true;
+
+            // Debug: Check hardware count
+            var hardwareList = _computer.Hardware;
+            DiagnosticInfo = $"Hardware count after Open+Enable: {hardwareList.Count}\n";
 
             // Find the CPU hardware
-            foreach (var hardware in _computer.Hardware)
+            foreach (var hardware in hardwareList)
             {
+                DiagnosticInfo += $"Found hardware: {hardware.Name} ({hardware.HardwareType})\n";
+
                 if (hardware.HardwareType == HardwareType.Cpu)
                 {
                     _cpu = hardware;
                     _cpu.Update();
                     CpuName = hardware.Name;
+
+                    // Debug: Check sensors immediately after Update
+                    DiagnosticInfo += $"CPU sensors count: {_cpu.Sensors.Length}\n";
+                    DiagnosticInfo += $"CPU subhardware count: {_cpu.SubHardware.Length}\n";
+                    foreach (var sensor in _cpu.Sensors.Take(10))
+                    {
+                        DiagnosticInfo += $"  Sensor: {sensor.Name} ({sensor.SensorType}) = {sensor.Value}\n";
+                    }
                     break;
                 }
             }
@@ -71,6 +85,7 @@ public class HardwareMonitorService : IHardwareMonitorService
             if (_cpu == null)
             {
                 LastError = "No CPU hardware found. Make sure to run as Administrator.";
+                DiagnosticInfo += "ERROR: _cpu is null after hardware enumeration!\n";
                 PhysicalCoreCount = LogicalCoreCount;
             }
             else
@@ -242,13 +257,24 @@ public class HardwareMonitorService : IHardwareMonitorService
             }
 
             // Update core data list
+            // Check if any effective clock sensors exist (Intel without HT doesn't have them)
+            bool hasEffectiveClocks = effectiveClocks.Count > 0;
+
             for (int i = 0; i < _coreDataList.Count; i++)
             {
                 var coreData = _coreDataList[i];
 
-                coreData.ClockSpeed = clocks.GetValueOrDefault(i, 0f);
-                coreData.EffectiveClockSpeed = effectiveClocks.GetValueOrDefault((i, 0), 0f);
-                coreData.EffectiveClockSpeed2T = effectiveClocks.GetValueOrDefault((i, 1), 0f);
+                var baseClockSpeed = clocks.GetValueOrDefault(i, 0f);
+                coreData.ClockSpeed = baseClockSpeed;
+
+                // Fall back to base clock if no effective clock sensors available
+                // (Intel CPUs without hyperthreading don't report effective clocks)
+                coreData.EffectiveClockSpeed = hasEffectiveClocks
+                    ? effectiveClocks.GetValueOrDefault((i, 0), 0f)
+                    : baseClockSpeed;
+                coreData.EffectiveClockSpeed2T = hasEffectiveClocks
+                    ? effectiveClocks.GetValueOrDefault((i, 1), 0f)
+                    : 0f;
 
                 coreData.Load1T = loads.GetValueOrDefault((i, 0), 0f);
                 coreData.Load2T = loads.GetValueOrDefault((i, 1), 0f);

@@ -9,6 +9,7 @@ public interface IHardwareMonitorService : IDisposable
     int LogicalCoreCount { get; }
     int SensorCount { get; }
     string? LastError { get; }
+    string? DiagnosticInfo { get; }
 
     IObservable<IReadOnlyList<CoreData>> CoreDataStream { get; }
 
