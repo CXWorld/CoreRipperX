@@ -8,6 +8,7 @@ public interface IHardwareMonitorService : IDisposable
     int PhysicalCoreCount { get; }
     int LogicalCoreCount { get; }
     int ThreadsPerCore { get; }
+    bool IsHybridCpu { get; }
     int SensorCount { get; }
     string? LastError { get; }
     string? DiagnosticInfo { get; }

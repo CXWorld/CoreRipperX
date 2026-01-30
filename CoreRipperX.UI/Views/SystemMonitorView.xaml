@@ -161,6 +161,17 @@
                                     Binding="{Binding CoreLabel}"
                                     Width="100" />
 
+                <DataGridTextColumn Header="Threads"
+                                    Binding="{Binding ThreadCount}"
+                                    Width="70"
+                                    Visibility="{Binding Data.IsHybridCpu, Source={StaticResource Proxy}, Converter={StaticResource BoolToVis}}">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+
                 <DataGridTextColumn Header="Clock (MHz)"
                                     Binding="{Binding ClockSpeed, StringFormat=N0}"
                                     Width="120">
@@ -183,17 +194,27 @@
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
 
-                <DataGridTextColumn Header="Eff. 2T (MHz)"
-                                    Binding="{Binding EffectiveClockSpeed2T, StringFormat=N0}"
-                                    Width="110"
-                                    Visibility="{Binding Data.HasMultipleThreadsPerCore, Source={StaticResource Proxy}, Converter={StaticResource BoolToVis}}">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="HorizontalAlignment" Value="Right" />
-                            <Setter Property="Margin" Value="0,0,8,0" />
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
+                <DataGridTemplateColumn Header="Eff. 2T (MHz)"
+                                        Width="110"
+                                        Visibility="{Binding Data.HasMultipleThreadsPerCore, Source={StaticResource Proxy}, Converter={StaticResource BoolToVis}}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock HorizontalAlignment="Right" Margin="0,0,8,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{Binding EffectiveClockSpeed2TDisplay, StringFormat=N0}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasSecondThread}" Value="False">
+                                                <Setter Property="Text" Value="-" />
+                                                <Setter Property="Opacity" Value="0.5" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
                 <DataGridTextColumn Header="Deviation %"
                                     Binding="{Binding DeviationPercent, StringFormat=N1}"
@@ -226,17 +247,27 @@
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
 
-                <DataGridTextColumn Header="Load 2T %"
-                                    Binding="{Binding Load2T, StringFormat=N0}"
-                                    Width="100"
-                                    Visibility="{Binding Data.HasMultipleThreadsPerCore, Source={StaticResource Proxy}, Converter={StaticResource BoolToVis}}">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="HorizontalAlignment" Value="Right" />
-                            <Setter Property="Margin" Value="0,0,8,0" />
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
+                <DataGridTemplateColumn Header="Load 2T %"
+                                        Width="100"
+                                        Visibility="{Binding Data.HasMultipleThreadsPerCore, Source={StaticResource Proxy}, Converter={StaticResource BoolToVis}}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock HorizontalAlignment="Right" Margin="0,0,8,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{Binding Load2TDisplay, StringFormat=N0}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasSecondThread}" Value="False">
+                                                <Setter Property="Text" Value="-" />
+                                                <Setter Property="Opacity" Value="0.5" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

@@ -29,6 +29,36 @@ public partial class CoreData : ObservableObject
     private bool _isDeviationCritical;
 
     /// <summary>
+    /// Number of threads on this core (1 for E-cores, 2 for P-cores with SMT).
+    /// </summary>
+    [ObservableProperty]
+    private int _threadCount = 1;
+
+    /// <summary>
+    /// The logical processor index of the first thread on this core.
+    /// Used for setting thread affinity during stress tests.
+    /// </summary>
+    [ObservableProperty]
+    private int _firstLogicalProcessor;
+
+    /// <summary>
+    /// Returns true if this core has multiple threads (P-core with SMT).
+    /// </summary>
+    public bool HasSecondThread => ThreadCount > 1;
+
+    /// <summary>
+    /// Returns the effective clock speed for thread 2, or null if this core has only 1 thread.
+    /// Used for display purposes to show empty cells for E-cores.
+    /// </summary>
+    public float? EffectiveClockSpeed2TDisplay => HasSecondThread ? EffectiveClockSpeed2T : null;
+
+    /// <summary>
+    /// Returns the load for thread 2, or null if this core has only 1 thread.
+    /// Used for display purposes to show empty cells for E-cores.
+    /// </summary>
+    public float? Load2TDisplay => HasSecondThread ? Load2T : null;
+
+    /// <summary>
     /// Which thread is currently being tested on this core.
     /// -1 = not testing, 0 = thread 1, 1 = thread 2
     /// </summary>
@@ -58,5 +88,25 @@ public partial class CoreData : ObservableObject
         OnPropertyChanged(nameof(DeviationPercent));
         OnPropertyChanged(nameof(IsCurrentlyTesting));
         OnPropertyChanged(nameof(ActiveEffectiveClockSpeed));
+        OnPropertyChanged(nameof(HasSecondThread));
+        OnPropertyChanged(nameof(EffectiveClockSpeed2TDisplay));
+        OnPropertyChanged(nameof(Load2TDisplay));
+    }
+
+    partial void OnThreadCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasSecondThread));
+        OnPropertyChanged(nameof(EffectiveClockSpeed2TDisplay));
+        OnPropertyChanged(nameof(Load2TDisplay));
+    }
+
+    partial void OnEffectiveClockSpeed2TChanged(float value)
+    {
+        OnPropertyChanged(nameof(EffectiveClockSpeed2TDisplay));
+    }
+
+    partial void OnLoad2TChanged(float value)
+    {
+        OnPropertyChanged(nameof(Load2TDisplay));
     }
 }

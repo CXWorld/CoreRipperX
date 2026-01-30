@@ -18,5 +18,6 @@ public interface IStressTestService
 
     Task RunStressTestAsync(AppSettings settings, CancellationToken cancellation = default);
     Task RunStressTestOnCoreAsync(int physicalCoreIndex, int threadsPerCore, AppSettings settings, CancellationToken cancellation = default);
+    Task RunStressTestOnCoreAsync(CoreData coreData, AppSettings settings, CancellationToken cancellation = default);
     void Cancel();
 }

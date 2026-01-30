@@ -21,6 +21,7 @@ public class HardwareMonitorService : IHardwareMonitorService
     public int PhysicalCoreCount { get; private set; }
     public int LogicalCoreCount { get; private set; }
     public int ThreadsPerCore => PhysicalCoreCount > 0 ? LogicalCoreCount / PhysicalCoreCount : 1;
+    public bool IsHybridCpu { get; private set; }
     public int SensorCount { get; private set; }
     public string? LastError { get; private set; }
     public string? DiagnosticInfo { get; private set; }
@@ -131,16 +132,77 @@ public class HardwareMonitorService : IHardwareMonitorService
                     PhysicalCoreCount = LogicalCoreCount;
                     _coreNumberOffset = 1;
                 }
+
+                // Detect per-core thread counts from sensors
+                // Cores that have "Thread #2" sensors have 2 threads (SMT/HT enabled)
+                var perCoreThreadCount = new Dictionary<int, int>();
+                foreach (var sensor in allSensors)
+                {
+                    var name = sensor.Name ?? "";
+                    // Look for sensors with "Core #X Thread #2" pattern
+                    var coreMatch = Regex.Match(name, @"Core #(\d+)");
+                    if (coreMatch.Success)
+                    {
+                        int sensorCoreNum = int.Parse(coreMatch.Groups[1].Value);
+                        int coreIndex = sensorCoreNum - _coreNumberOffset;
+
+                        if (coreIndex >= 0 && coreIndex < PhysicalCoreCount)
+                        {
+                            var threadMatch = Regex.Match(name, @"Thread #(\d+)");
+                            if (threadMatch.Success)
+                            {
+                                int threadNum = int.Parse(threadMatch.Groups[1].Value);
+                                if (!perCoreThreadCount.ContainsKey(coreIndex) || threadNum > perCoreThreadCount[coreIndex])
+                                {
+                                    perCoreThreadCount[coreIndex] = threadNum;
+                                }
+                            }
+                            else if (!perCoreThreadCount.ContainsKey(coreIndex))
+                            {
+                                // Core sensor without thread number - assume at least 1 thread
+                                perCoreThreadCount[coreIndex] = 1;
+                            }
+                        }
+                    }
+                }
+
+                // Detect if this is a hybrid CPU (mixed thread counts)
+                var threadCounts = perCoreThreadCount.Values.Distinct().ToList();
+                IsHybridCpu = threadCounts.Count > 1;
+
+                // Calculate first logical processor for each core
+                int currentLogicalProcessor = 0;
+                for (int i = 0; i < PhysicalCoreCount; i++)
+                {
+                    int threadCount = perCoreThreadCount.GetValueOrDefault(i, 1);
+                    _coreDataList.Add(new CoreData
+                    {
+                        CoreIndex = i,
+                        CoreLabel = $"Core #{i}",
+                        ThreadCount = threadCount,
+                        FirstLogicalProcessor = currentLogicalProcessor
+                    });
+                    currentLogicalProcessor += threadCount;
+                }
+
+                DiagnosticInfo += $"Hybrid CPU: {IsHybridCpu}\n";
+                DiagnosticInfo += $"Per-core threads: {string.Join(", ", _coreDataList.Select(c => $"C{c.CoreIndex}:{c.ThreadCount}T@LP{c.FirstLogicalProcessor}"))}\n";
             }
 
-            // Create core data entries per physical core
-            for (int i = 0; i < PhysicalCoreCount; i++)
+            // Fallback when _cpu is null (no sensor data) - create core data with uniform threads
+            if (_coreDataList.Count == 0)
             {
-                _coreDataList.Add(new CoreData
+                int uniformThreadsPerCore = PhysicalCoreCount > 0 ? LogicalCoreCount / PhysicalCoreCount : 1;
+                for (int i = 0; i < PhysicalCoreCount; i++)
                 {
-                    CoreIndex = i,
-                    CoreLabel = $"Core #{i}"
-                });
+                    _coreDataList.Add(new CoreData
+                    {
+                        CoreIndex = i,
+                        CoreLabel = $"Core #{i}",
+                        ThreadCount = uniformThreadsPerCore,
+                        FirstLogicalProcessor = i * uniformThreadsPerCore
+                    });
+                }
             }
 
             _isInitialized = true;

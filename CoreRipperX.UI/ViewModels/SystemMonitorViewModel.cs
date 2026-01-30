@@ -28,7 +28,14 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _threadsPerCore;
 
-    public bool HasMultipleThreadsPerCore => ThreadsPerCore > 1;
+    [ObservableProperty]
+    private bool _isHybridCpu;
+
+    /// <summary>
+    /// Returns true if any core has multiple threads (for showing 2T columns).
+    /// This is true for hybrid CPUs (some P-cores have 2 threads) or uniform SMT CPUs.
+    /// </summary>
+    public bool HasMultipleThreadsPerCore => IsHybridCpu || ThreadsPerCore > 1;
 
     [ObservableProperty]
     private int _sensorCount;
@@ -68,6 +75,7 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
         PhysicalCoreCount = _hardwareService.PhysicalCoreCount;
         LogicalCoreCount = _hardwareService.LogicalCoreCount;
         ThreadsPerCore = _hardwareService.ThreadsPerCore;
+        IsHybridCpu = _hardwareService.IsHybridCpu;
         OnPropertyChanged(nameof(HasMultipleThreadsPerCore));
 
         _subscription = _hardwareService.CoreDataStream
@@ -103,6 +111,7 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
             PhysicalCoreCount = _hardwareService.PhysicalCoreCount;
             LogicalCoreCount = _hardwareService.LogicalCoreCount;
             ThreadsPerCore = _hardwareService.ThreadsPerCore;
+            IsHybridCpu = _hardwareService.IsHybridCpu;
             OnPropertyChanged(nameof(HasMultipleThreadsPerCore));
         }
 
@@ -116,6 +125,8 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
             target.EffectiveClockSpeed2T = source.EffectiveClockSpeed2T;
             target.Load1T = source.Load1T;
             target.Load2T = source.Load2T;
+            target.ThreadCount = source.ThreadCount;
+            target.FirstLogicalProcessor = source.FirstLogicalProcessor;
             target.UpdateDeviationStatus(_settings.CriticalDeviationPercent);
         }
     }
@@ -128,9 +139,25 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
         StressTestErrorCount = progress.ErrorCount;
 
         // Map logical thread index to physical core and thread within core
-        int threadsPerCore = PhysicalCoreCount > 0 ? LogicalCoreCount / PhysicalCoreCount : 1;
-        int physicalCoreIndex = threadsPerCore > 0 ? progress.CurrentCoreIndex / threadsPerCore : progress.CurrentCoreIndex;
-        int threadWithinCore = threadsPerCore > 0 ? progress.CurrentCoreIndex % threadsPerCore : 0;
+        // This handles hybrid CPUs where P-cores have 2 threads and E-cores have 1 thread
+        int logicalProcessorIndex = progress.CurrentCoreIndex;
+        int physicalCoreIndex = -1;
+        int threadWithinCore = 0;
+
+        // Find which physical core contains this logical processor
+        for (int i = 0; i < Cores.Count; i++)
+        {
+            var core = Cores[i];
+            int coreStart = core.FirstLogicalProcessor;
+            int coreEnd = coreStart + core.ThreadCount;
+
+            if (logicalProcessorIndex >= coreStart && logicalProcessorIndex < coreEnd)
+            {
+                physicalCoreIndex = i;
+                threadWithinCore = logicalProcessorIndex - coreStart;
+                break;
+            }
+        }
 
         for (int i = 0; i < Cores.Count; i++)
         {
@@ -154,8 +181,9 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
     {
         if (core == null) return;
 
-        int threadsPerCore = PhysicalCoreCount > 0 ? LogicalCoreCount / PhysicalCoreCount : 1;
-        await _stressTestService.RunStressTestOnCoreAsync(core.CoreIndex, threadsPerCore, _settings);
+        // Use the CoreData directly - it contains the correct FirstLogicalProcessor and ThreadCount
+        // which properly handles hybrid CPUs (P-cores with 2 threads, E-cores with 1 thread)
+        await _stressTestService.RunStressTestOnCoreAsync(core, _settings);
     }
 
     private bool CanStressTestCore(CoreData? core) => core != null && !_stressTestService.IsRunning;

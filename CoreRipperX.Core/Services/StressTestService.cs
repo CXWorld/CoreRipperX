@@ -172,6 +172,19 @@ public class StressTestService : IStressTestService
 
     public async Task RunStressTestOnCoreAsync(int physicalCoreIndex, int threadsPerCore, AppSettings settings, CancellationToken cancellation = default)
     {
+        // Legacy overload - assumes uniform thread distribution (incorrect for hybrid CPUs)
+        // Create a temporary CoreData with uniform thread calculation
+        var coreData = new CoreData
+        {
+            CoreIndex = physicalCoreIndex,
+            ThreadCount = threadsPerCore,
+            FirstLogicalProcessor = physicalCoreIndex * threadsPerCore
+        };
+        await RunStressTestOnCoreAsync(coreData, settings, cancellation);
+    }
+
+    public async Task RunStressTestOnCoreAsync(CoreData coreData, AppSettings settings, CancellationToken cancellation = default)
+    {
         if (IsRunning) return;
 
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
@@ -179,19 +192,21 @@ public class StressTestService : IStressTestService
         _totalErrorCount = 0;
 
         var token = _cts.Token;
-        int startThread = physicalCoreIndex * threadsPerCore;
-        int endThread = startThread + threadsPerCore;
+        int physicalCoreIndex = coreData.CoreIndex;
+        int threadCount = coreData.ThreadCount;
+        int startThread = coreData.FirstLogicalProcessor;
+        int endThread = startThread + threadCount;
 
         try
         {
-            _progressSubject.OnNext(new StressTestProgress(startThread, threadsPerCore, true, $"Testing Core #{physicalCoreIndex}..."));
+            _progressSubject.OnNext(new StressTestProgress(startThread, threadCount, true, $"Testing Core #{physicalCoreIndex}..."));
 
             for (int i = startThread; i < endThread; i++)
             {
                 if (token.IsCancellationRequested) break;
 
                 int thread = i;
-                _progressSubject.OnNext(new StressTestProgress(thread, threadsPerCore, true, $"Testing Core #{physicalCoreIndex} Thread #{i - startThread + 1}", _totalErrorCount));
+                _progressSubject.OnNext(new StressTestProgress(thread, threadCount, true, $"Testing Core #{physicalCoreIndex} Thread #{i - startThread + 1}", _totalErrorCount));
 
                 using var coreCts = CancellationTokenSource.CreateLinkedTokenSource(token);
                 var coreToken = coreCts.Token;
@@ -221,11 +236,11 @@ public class StressTestService : IStressTestService
             var finalStatus = _totalErrorCount > 0
                 ? $"Core #{physicalCoreIndex} test completed with {_totalErrorCount} error(s)!"
                 : $"Core #{physicalCoreIndex} test completed - no errors";
-            _progressSubject.OnNext(new StressTestProgress(endThread, threadsPerCore, false, finalStatus, _totalErrorCount));
+            _progressSubject.OnNext(new StressTestProgress(endThread, threadCount, false, finalStatus, _totalErrorCount));
         }
         catch (OperationCanceledException)
         {
-            _progressSubject.OnNext(new StressTestProgress(0, threadsPerCore, false, "Stress test cancelled", _totalErrorCount));
+            _progressSubject.OnNext(new StressTestProgress(0, threadCount, false, "Stress test cancelled", _totalErrorCount));
         }
         finally
         {
