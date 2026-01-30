@@ -20,6 +20,7 @@ public class HardwareMonitorService : IHardwareMonitorService
     public string CpuName { get; private set; } = "Unknown CPU";
     public int PhysicalCoreCount { get; private set; }
     public int LogicalCoreCount { get; private set; }
+    public int ThreadsPerCore => PhysicalCoreCount > 0 ? LogicalCoreCount / PhysicalCoreCount : 1;
     public int SensorCount { get; private set; }
     public string? LastError { get; private set; }
     public string? DiagnosticInfo { get; private set; }

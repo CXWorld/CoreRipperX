@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\reference\CapFrameX\source\LibreHardwareMonitorLib\LibreHardwareMonitorLib.csproj" />
+    <ProjectReference Include="..\shims\LibreHardwareMonitorLib.csproj" />
   </ItemGroup>
 
 </Project>

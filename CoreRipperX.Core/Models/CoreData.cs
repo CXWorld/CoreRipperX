@@ -46,11 +46,10 @@ public partial class CoreData : ObservableObject
         : EffectiveClockSpeed;
 
     /// <summary>
-    /// Relative deviation between clock speed and effective clock speed.
-    /// Positive = throttling (effective &lt; clock), Negative = boosting (effective &gt; clock)
+    /// Relative deviation between clock speed and effective clock speed (absolute value).
     /// </summary>
     public float DeviationPercent => ClockSpeed > 0 && ActiveEffectiveClockSpeed > 0
-        ? (ClockSpeed - ActiveEffectiveClockSpeed) / ClockSpeed * 100f
+        ? Math.Abs((ClockSpeed - ActiveEffectiveClockSpeed) / ClockSpeed * 100f)
         : 0f;
 
     public void UpdateDeviationStatus(double threshold)

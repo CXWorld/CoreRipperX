@@ -5,8 +5,14 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:viewmodels="clr-namespace:CoreRipperX.UI.ViewModels"
+             xmlns:helpers="clr-namespace:CoreRipperX.UI.Helpers"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=viewmodels:SystemMonitorViewModel}">
+
+    <UserControl.Resources>
+        <helpers:BindingProxy x:Key="Proxy" Data="{Binding}" />
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -50,19 +56,11 @@
                 </Grid>
 
                 <!-- Error display -->
-                <TextBlock Text="{Binding LastError}"
+				<TextBlock Text="{Binding LastError}"
                            Foreground="#FF5252"
                            TextWrapping="Wrap"
                            Margin="0,8,0,0" />
-
-                <!-- Diagnostic info (temporary) -->
-                <Expander Header="Diagnostic Info" Margin="0,8,0,0" IsExpanded="False">
-                    <TextBlock Text="{Binding DiagnosticInfo}"
-                               FontFamily="Consolas"
-                               FontSize="11"
-                               TextWrapping="Wrap" />
-                </Expander>
-            </StackPanel>
+			</StackPanel>
         </materialDesign:Card>
 
         <!-- Stress Test Status Panel -->
@@ -187,7 +185,8 @@
 
                 <DataGridTextColumn Header="Eff. 2T (MHz)"
                                     Binding="{Binding EffectiveClockSpeed2T, StringFormat=N0}"
-                                    Width="110">
+                                    Width="110"
+                                    Visibility="{Binding Data.HasMultipleThreadsPerCore, Source={StaticResource Proxy}, Converter={StaticResource BoolToVis}}">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="HorizontalAlignment" Value="Right" />
@@ -197,7 +196,7 @@
                 </DataGridTextColumn>
 
                 <DataGridTextColumn Header="Deviation %"
-                                    Binding="{Binding DeviationPercent, StringFormat='+0.0;-0.0;0.0'}"
+                                    Binding="{Binding DeviationPercent, StringFormat=N1}"
                                     Width="120">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
@@ -229,7 +228,8 @@
 
                 <DataGridTextColumn Header="Load 2T %"
                                     Binding="{Binding Load2T, StringFormat=N0}"
-                                    Width="100">
+                                    Width="100"
+                                    Visibility="{Binding Data.HasMultipleThreadsPerCore, Source={StaticResource Proxy}, Converter={StaticResource BoolToVis}}">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="HorizontalAlignment" Value="Right" />

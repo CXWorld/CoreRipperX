@@ -7,6 +7,7 @@ public interface IHardwareMonitorService : IDisposable
     string CpuName { get; }
     int PhysicalCoreCount { get; }
     int LogicalCoreCount { get; }
+    int ThreadsPerCore { get; }
     int SensorCount { get; }
     string? LastError { get; }
     string? DiagnosticInfo { get; }

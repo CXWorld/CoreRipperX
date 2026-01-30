@@ -26,6 +26,11 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
     private int _logicalCoreCount;
 
     [ObservableProperty]
+    private int _threadsPerCore;
+
+    public bool HasMultipleThreadsPerCore => ThreadsPerCore > 1;
+
+    [ObservableProperty]
     private int _sensorCount;
 
     [ObservableProperty]
@@ -62,6 +67,8 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
         CpuName = _hardwareService.CpuName;
         PhysicalCoreCount = _hardwareService.PhysicalCoreCount;
         LogicalCoreCount = _hardwareService.LogicalCoreCount;
+        ThreadsPerCore = _hardwareService.ThreadsPerCore;
+        OnPropertyChanged(nameof(HasMultipleThreadsPerCore));
 
         _subscription = _hardwareService.CoreDataStream
             .ObserveOn(SynchronizationContext.Current!)
@@ -95,6 +102,8 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
             CpuName = _hardwareService.CpuName;
             PhysicalCoreCount = _hardwareService.PhysicalCoreCount;
             LogicalCoreCount = _hardwareService.LogicalCoreCount;
+            ThreadsPerCore = _hardwareService.ThreadsPerCore;
+            OnPropertyChanged(nameof(HasMultipleThreadsPerCore));
         }
 
         for (int i = 0; i < coreDataList.Count && i < Cores.Count; i++)

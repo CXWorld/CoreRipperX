@@ -18,6 +18,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CoreRipperX.Core\CoreRipperX.Core.csproj" />
+    <ProjectReference Include="..\reference\CapFrameX\source\CapFrameX.Hwinfo\CapFrameX.Hwinfo.vcxproj" />
   </ItemGroup>
+
+  <!-- Copy CapFrameX.Hwinfo.dll to output directory after build -->
+  <Target Name="CopyHwinfoDll" AfterTargets="Build">
+    <Copy SourceFiles="$(SolutionDir)reference\CapFrameX\source\CapFrameX.Hwinfo\$(Platform)\$(Configuration)\CapFrameX.Hwinfo.dll" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" Condition="Exists('$(SolutionDir)reference\CapFrameX\source\CapFrameX.Hwinfo\$(Platform)\$(Configuration)\CapFrameX.Hwinfo.dll')" />
+  </Target>
 
 </Project>
