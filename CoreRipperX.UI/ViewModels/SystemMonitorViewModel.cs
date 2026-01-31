@@ -66,6 +66,8 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<CoreData> Cores { get; } = new();
 
+    public string[] SingleThreadAlgorithms => _settings.SingleThreadAlgorithms;
+
     public SystemMonitorViewModel(IHardwareMonitorService hardwareService, IStressTestService stressTestService, AppSettings settings)
     {
         _hardwareService = hardwareService;
@@ -154,36 +156,51 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
         StressTestStatus = progress.Status;
         StressTestErrorCount = progress.ErrorCount;
 
-        // Map logical thread index to physical core and thread within core
-        // This handles hybrid CPUs where P-cores have 2 threads and E-cores have 1 thread
-        int logicalProcessorIndex = progress.CurrentCoreIndex;
-        int physicalCoreIndex = -1;
-        int threadWithinCore = 0;
+        // Don't mark rows for nT tests (all cores stressed simultaneously)
+        var algorithm = _settings.SelectedAlgorithm;
+        bool isMultiThreaded = algorithm.EndsWith("nT") || algorithm == "Memory Chase";
 
-        // Find which physical core contains this logical processor
-        for (int i = 0; i < Cores.Count; i++)
+        if (isMultiThreaded)
         {
-            var core = Cores[i];
-            int coreStart = core.FirstLogicalProcessor;
-            int coreEnd = coreStart + core.ThreadCount;
-
-            if (logicalProcessorIndex >= coreStart && logicalProcessorIndex < coreEnd)
-            {
-                physicalCoreIndex = i;
-                threadWithinCore = logicalProcessorIndex - coreStart;
-                break;
-            }
-        }
-
-        for (int i = 0; i < Cores.Count; i++)
-        {
-            if (progress.IsRunning && i == physicalCoreIndex)
-            {
-                Cores[i].TestingThreadIndex = threadWithinCore;
-            }
-            else
+            // Clear all row highlighting for nT tests
+            for (int i = 0; i < Cores.Count; i++)
             {
                 Cores[i].TestingThreadIndex = -1;
+            }
+        }
+        else
+        {
+            // Map logical thread index to physical core and thread within core
+            // This handles hybrid CPUs where P-cores have 2 threads and E-cores have 1 thread
+            int logicalProcessorIndex = progress.CurrentCoreIndex;
+            int physicalCoreIndex = -1;
+            int threadWithinCore = 0;
+
+            // Find which physical core contains this logical processor
+            for (int i = 0; i < Cores.Count; i++)
+            {
+                var core = Cores[i];
+                int coreStart = core.FirstLogicalProcessor;
+                int coreEnd = coreStart + core.ThreadCount;
+
+                if (logicalProcessorIndex >= coreStart && logicalProcessorIndex < coreEnd)
+                {
+                    physicalCoreIndex = i;
+                    threadWithinCore = logicalProcessorIndex - coreStart;
+                    break;
+                }
+            }
+
+            for (int i = 0; i < Cores.Count; i++)
+            {
+                if (progress.IsRunning && i == physicalCoreIndex)
+                {
+                    Cores[i].TestingThreadIndex = threadWithinCore;
+                }
+                else
+                {
+                    Cores[i].TestingThreadIndex = -1;
+                }
             }
         }
 
@@ -203,6 +220,28 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
     }
 
     private bool CanStressTestCore(CoreData? core) => core != null && !_stressTestService.IsRunning;
+
+    [RelayCommand(CanExecute = nameof(CanStressTestCoreWithAlgorithm))]
+    private async Task StressTestCoreWithAlgorithmAsync(StressTestCoreRequest? request)
+    {
+        if (request?.Core == null || string.IsNullOrEmpty(request.Algorithm)) return;
+
+        // Temporarily override the algorithm for this test
+        var originalAlgorithm = _settings.SelectedAlgorithm;
+        _settings.SelectedAlgorithm = request.Algorithm;
+
+        try
+        {
+            await _stressTestService.RunStressTestOnCoreAsync(request.Core, _settings);
+        }
+        finally
+        {
+            _settings.SelectedAlgorithm = originalAlgorithm;
+        }
+    }
+
+    private bool CanStressTestCoreWithAlgorithm(StressTestCoreRequest? request) =>
+        request?.Core != null && !string.IsNullOrEmpty(request.Algorithm) && !_stressTestService.IsRunning;
 
     [RelayCommand(CanExecute = nameof(CanCancelStressTest))]
     private void CancelStressTest()

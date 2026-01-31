@@ -11,6 +11,7 @@
 
     <UserControl.Resources>
         <helpers:BindingProxy x:Key="Proxy" Data="{Binding}" />
+        <helpers:CoreToRequestConverter x:Key="CoreToRequestConverter" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </UserControl.Resources>
 
@@ -150,9 +151,17 @@
 
             <DataGrid.Resources>
                 <ContextMenu x:Key="RowContextMenu">
-                    <MenuItem Header="{Binding CoreLabel, StringFormat='Stress Test {0}'}"
-                              Command="{Binding PlacementTarget.Tag.StressTestCoreCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                              CommandParameter="{Binding}" />
+                    <MenuItem Header="{Binding CoreLabel, StringFormat='Stress Test {0}'}">
+                        <MenuItem Header="AVX2 1T"
+                                  Command="{Binding PlacementTarget.Tag.StressTestCoreWithAlgorithmCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding Converter={StaticResource CoreToRequestConverter}, ConverterParameter=AVX2 1T}" />
+                        <MenuItem Header="AVX512 1T"
+                                  Command="{Binding PlacementTarget.Tag.StressTestCoreWithAlgorithmCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding Converter={StaticResource CoreToRequestConverter}, ConverterParameter=AVX512 1T}" />
+                        <MenuItem Header="Memory Chase"
+                                  Command="{Binding PlacementTarget.Tag.StressTestCoreWithAlgorithmCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding Converter={StaticResource CoreToRequestConverter}, ConverterParameter=Memory Chase}" />
+                    </MenuItem>
                     <Separator />
                     <MenuItem Header="Cancel Stress Test"
                               Command="{Binding PlacementTarget.Tag.CancelStressTestCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />

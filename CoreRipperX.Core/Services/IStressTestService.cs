@@ -11,7 +11,7 @@ public record StressTestProgress(
     string? LastError = null
 );
 
-public interface IStressTestService
+public interface IStressTestService : IDisposable
 {
     bool IsRunning { get; }
     IObservable<StressTestProgress> ProgressStream { get; }
