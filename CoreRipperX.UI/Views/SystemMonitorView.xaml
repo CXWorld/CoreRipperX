@@ -52,12 +52,12 @@
 
                     <StackPanel Grid.Column="3" Margin="32,0">
                         <TextBlock Text="Power" Style="{StaticResource MaterialDesignCaptionTextBlock}" Opacity="0.7" />
-                        <TextBlock Text="{Binding PackagePowerDisplay}" Style="{StaticResource MaterialDesignHeadline6TextBlock}" />
+                        <TextBlock Text="{Binding PackagePowerDisplay}" Style="{StaticResource MaterialDesignHeadline6TextBlock}" MinWidth="65" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="4" Margin="32,0">
                         <TextBlock Text="Temp" Style="{StaticResource MaterialDesignCaptionTextBlock}" Opacity="0.7" />
-                        <TextBlock Text="{Binding PackageTemperatureDisplay}">
+                        <TextBlock Text="{Binding PackageTemperatureDisplay}" MinWidth="65">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource MaterialDesignHeadline6TextBlock}">
                                     <Style.Triggers>
