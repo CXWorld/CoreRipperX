@@ -10,6 +10,8 @@ public interface IHardwareMonitorService : IDisposable
     int ThreadsPerCore { get; }
     bool IsHybridCpu { get; }
     int SensorCount { get; }
+    float PackagePowerWatts { get; }
+    float PackageTemperatureCelsius { get; }
     string? LastError { get; }
     string? DiagnosticInfo { get; }
 

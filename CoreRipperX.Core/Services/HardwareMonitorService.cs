@@ -23,6 +23,8 @@ public class HardwareMonitorService : IHardwareMonitorService
     public int ThreadsPerCore => PhysicalCoreCount > 0 ? LogicalCoreCount / PhysicalCoreCount : 1;
     public bool IsHybridCpu { get; private set; }
     public int SensorCount { get; private set; }
+    public float PackagePowerWatts { get; private set; }
+    public float PackageTemperatureCelsius { get; private set; }
     public string? LastError { get; private set; }
     public string? DiagnosticInfo { get; private set; }
 
@@ -264,6 +266,10 @@ public class HardwareMonitorService : IHardwareMonitorService
             var effectiveClocks = new Dictionary<(int core, int thread), float>();
             var loads = new Dictionary<(int core, int thread), float>();
 
+            // Package-level sensors
+            float packagePower = 0f;
+            float packageTemp = 0f;
+
             foreach (var sensor in allSensors)
             {
                 var name = sensor.Name ?? "";
@@ -271,6 +277,24 @@ public class HardwareMonitorService : IHardwareMonitorService
 
                 switch (sensor.SensorType)
                 {
+                    case SensorType.Power:
+                        // "CPU Package" for both Intel and AMD
+                        if (name.Equals("CPU Package", StringComparison.OrdinalIgnoreCase))
+                        {
+                            packagePower = value;
+                        }
+                        break;
+
+                    case SensorType.Temperature:
+                        // Intel: "CPU Package"
+                        // AMD: "CPU Package (Tctl/Tdie)" or "Core (Tctl/Tdie)"
+                        if (name.Equals("CPU Package", StringComparison.OrdinalIgnoreCase) ||
+                            name.Contains("Tctl/Tdie", StringComparison.OrdinalIgnoreCase))
+                        {
+                            packageTemp = value;
+                        }
+                        break;
+
                     case SensorType.Clock:
                         // Match "Core #X" where X is the core number
                         var clockMatch = Regex.Match(name, @"Core #(\d+)");
@@ -342,6 +366,10 @@ public class HardwareMonitorService : IHardwareMonitorService
                 coreData.Load1T = loads.GetValueOrDefault((i, 0), 0f);
                 coreData.Load2T = loads.GetValueOrDefault((i, 1), 0f);
             }
+
+            // Update package-level values
+            PackagePowerWatts = packagePower;
+            PackageTemperatureCelsius = packageTemp;
 
             LastError = null;
         }

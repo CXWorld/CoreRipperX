@@ -27,6 +27,8 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="24" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="24" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <Grid.ColumnDefinitions>
@@ -92,6 +94,29 @@
                           Width="200"
                           HorizontalAlignment="Left"
                           Style="{StaticResource MaterialDesignOutlinedComboBox}" />
+
+                <!-- Critical Temperature Setting -->
+                <TextBlock Grid.Row="8" Grid.Column="0"
+                           Text="Critical Temperature"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource MaterialDesignBody1TextBlock}" />
+                <StackPanel Grid.Row="8" Grid.Column="1" Orientation="Horizontal">
+                    <Slider Value="{Binding Settings.CriticalTemperatureCelsius}"
+                            Minimum="60"
+                            Maximum="110"
+                            Width="200"
+                            VerticalAlignment="Center"
+                            TickFrequency="5"
+                            IsSnapToTickEnabled="True" />
+                    <TextBlock Text="{Binding Settings.CriticalTemperatureCelsius, StringFormat=N0}"
+                               Margin="16,0,0,0"
+                               Width="30"
+                               VerticalAlignment="Center"
+                               Style="{StaticResource MaterialDesignBody1TextBlock}" />
+                    <TextBlock Text="&#x00B0;C"
+                               VerticalAlignment="Center"
+                               Style="{StaticResource MaterialDesignBody1TextBlock}" />
+                </StackPanel>
             </Grid>
         </materialDesign:Card>
 

@@ -41,6 +41,15 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
     private int _sensorCount;
 
     [ObservableProperty]
+    private string _packagePowerDisplay = "-";
+
+    [ObservableProperty]
+    private string _packageTemperatureDisplay = "-";
+
+    [ObservableProperty]
+    private bool _isTemperatureCritical;
+
+    [ObservableProperty]
     private string? _lastError;
 
     [ObservableProperty]
@@ -103,6 +112,13 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
         SensorCount = _hardwareService.SensorCount;
         LastError = _hardwareService.LastError;
         DiagnosticInfo = _hardwareService.DiagnosticInfo;
+
+        // Update package power and temperature displays
+        var power = _hardwareService.PackagePowerWatts;
+        var temp = _hardwareService.PackageTemperatureCelsius;
+        PackagePowerDisplay = power > 0 ? $"{power:N0}W" : "-";
+        PackageTemperatureDisplay = temp > 0 ? $"{temp:N0}\u00B0C" : "-";
+        IsTemperatureCritical = temp > 0 && temp >= _settings.CriticalTemperatureCelsius;
 
         // Update CPU info if not set
         if (CpuName == "Loading..." || CpuName == "Unknown CPU")

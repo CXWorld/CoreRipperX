@@ -32,6 +32,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
@@ -50,8 +51,23 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="3" Margin="32,0">
-                        <TextBlock Text="Sensors" Style="{StaticResource MaterialDesignCaptionTextBlock}" Opacity="0.7" />
-                        <TextBlock Text="{Binding SensorCount}" Style="{StaticResource MaterialDesignHeadline6TextBlock}" />
+                        <TextBlock Text="Power" Style="{StaticResource MaterialDesignCaptionTextBlock}" Opacity="0.7" />
+                        <TextBlock Text="{Binding PackagePowerDisplay}" Style="{StaticResource MaterialDesignHeadline6TextBlock}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="4" Margin="32,0">
+                        <TextBlock Text="Temp" Style="{StaticResource MaterialDesignCaptionTextBlock}" Opacity="0.7" />
+                        <TextBlock Text="{Binding PackageTemperatureDisplay}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource MaterialDesignHeadline6TextBlock}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsTemperatureCritical}" Value="True">
+                                            <Setter Property="Foreground" Value="#FF5252" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </Grid>
 
