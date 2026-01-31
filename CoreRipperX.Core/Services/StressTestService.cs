@@ -145,6 +145,10 @@ public class StressTestService : IStressTestService, IDisposable
 
     private void RunStressOnCore(int coreIndex, string algorithm, CancellationToken token)
     {
+        // Lower thread priority so stress tests don't starve the UI thread
+        var previousPriority = Thread.CurrentThread.Priority;
+        Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
+
         // Use LibreHardwareMonitor's ThreadAffinity for proper processor group handling
         var previousAffinity = SetThreadAffinity(coreIndex);
 
@@ -175,6 +179,9 @@ public class StressTestService : IStressTestService, IDisposable
             {
                 ThreadAffinity.Set(previousAffinity);
             }
+
+            // Restore thread priority
+            Thread.CurrentThread.Priority = previousPriority;
         }
     }
 

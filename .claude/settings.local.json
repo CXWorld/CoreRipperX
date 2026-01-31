@@ -33,7 +33,9 @@
       "Bash(ls:*)",
       "Bash(\"C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe\" \"D:/Code/CoreRipperX/CoreRipperX.sln\" -p:Configuration=Debug -p:Platform=x64 -t:Rebuild -v:minimal)",
       "Bash(\"C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe\" \"D:/Code/CoreRipperX/CoreRipperX.sln\" -p:Configuration=Debug -p:Platform=x64 -t:Build -v:minimal)",
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Bash(Select-String -Pattern \"error|Error\")",
+      "Bash(Select-Object -First 10)"
     ]
   }
 }

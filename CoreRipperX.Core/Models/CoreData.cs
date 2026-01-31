@@ -84,13 +84,15 @@ public partial class CoreData : ObservableObject
 
     public void UpdateDeviationStatus(double threshold)
     {
-        IsDeviationCritical = Math.Abs(DeviationPercent) > threshold;
+        // Only update IsDeviationCritical if it actually changed
+        bool newCritical = Math.Abs(DeviationPercent) > threshold;
+        if (IsDeviationCritical != newCritical)
+            IsDeviationCritical = newCritical;
+
+        // Only notify for computed properties that depend on values that may have changed
+        // DeviationPercent and ActiveEffectiveClockSpeed depend on ClockSpeed/EffectiveClockSpeed
         OnPropertyChanged(nameof(DeviationPercent));
-        OnPropertyChanged(nameof(IsCurrentlyTesting));
         OnPropertyChanged(nameof(ActiveEffectiveClockSpeed));
-        OnPropertyChanged(nameof(HasSecondThread));
-        OnPropertyChanged(nameof(EffectiveClockSpeed2TDisplay));
-        OnPropertyChanged(nameof(Load2TDisplay));
     }
 
     partial void OnThreadCountChanged(int value)
@@ -108,5 +110,11 @@ public partial class CoreData : ObservableObject
     partial void OnLoad2TChanged(float value)
     {
         OnPropertyChanged(nameof(Load2TDisplay));
+    }
+
+    partial void OnTestingThreadIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsCurrentlyTesting));
+        OnPropertyChanged(nameof(ActiveEffectiveClockSpeed));
     }
 }

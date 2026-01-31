@@ -89,11 +89,16 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
         IsHybridCpu = _hardwareService.IsHybridCpu;
         OnPropertyChanged(nameof(HasMultipleThreadsPerCore));
 
+        // Sample hardware updates to reduce UI thread load during heavy AVX operations
+        // This ensures UI remains responsive even when stress tests consume CPU resources
         _subscription = _hardwareService.CoreDataStream
+            .Sample(TimeSpan.FromMilliseconds(100))
             .ObserveOn(SynchronizationContext.Current!)
             .Subscribe(OnCoreDataUpdated);
 
+        // Throttle stress test progress to avoid flooding UI with rapid updates
         _stressTestSubscription = _stressTestService.ProgressStream
+            .Throttle(TimeSpan.FromMilliseconds(50))
             .ObserveOn(SynchronizationContext.Current!)
             .Subscribe(OnStressTestProgress);
 
@@ -138,13 +143,22 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
             var source = coreDataList[i];
             var target = Cores[i];
 
-            target.ClockSpeed = source.ClockSpeed;
-            target.EffectiveClockSpeed = source.EffectiveClockSpeed;
-            target.EffectiveClockSpeed2T = source.EffectiveClockSpeed2T;
-            target.Load1T = source.Load1T;
-            target.Load2T = source.Load2T;
-            target.ThreadCount = source.ThreadCount;
-            target.FirstLogicalProcessor = source.FirstLogicalProcessor;
+            // Only update properties that have actually changed to reduce PropertyChanged events
+            if (target.ClockSpeed != source.ClockSpeed)
+                target.ClockSpeed = source.ClockSpeed;
+            if (target.EffectiveClockSpeed != source.EffectiveClockSpeed)
+                target.EffectiveClockSpeed = source.EffectiveClockSpeed;
+            if (target.EffectiveClockSpeed2T != source.EffectiveClockSpeed2T)
+                target.EffectiveClockSpeed2T = source.EffectiveClockSpeed2T;
+            if (target.Load1T != source.Load1T)
+                target.Load1T = source.Load1T;
+            if (target.Load2T != source.Load2T)
+                target.Load2T = source.Load2T;
+            if (target.ThreadCount != source.ThreadCount)
+                target.ThreadCount = source.ThreadCount;
+            if (target.FirstLogicalProcessor != source.FirstLogicalProcessor)
+                target.FirstLogicalProcessor = source.FirstLogicalProcessor;
+
             target.UpdateDeviationStatus(_settings.CriticalDeviationPercent);
         }
     }
@@ -162,10 +176,11 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
 
         if (isMultiThreaded)
         {
-            // Clear all row highlighting for nT tests
+            // Clear all row highlighting for nT tests - only update if changed
             for (int i = 0; i < Cores.Count; i++)
             {
-                Cores[i].TestingThreadIndex = -1;
+                if (Cores[i].TestingThreadIndex != -1)
+                    Cores[i].TestingThreadIndex = -1;
             }
         }
         else
@@ -191,16 +206,12 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
                 }
             }
 
+            // Only update TestingThreadIndex when the value actually changes
             for (int i = 0; i < Cores.Count; i++)
             {
-                if (progress.IsRunning && i == physicalCoreIndex)
-                {
-                    Cores[i].TestingThreadIndex = threadWithinCore;
-                }
-                else
-                {
-                    Cores[i].TestingThreadIndex = -1;
-                }
+                int newValue = (progress.IsRunning && i == physicalCoreIndex) ? threadWithinCore : -1;
+                if (Cores[i].TestingThreadIndex != newValue)
+                    Cores[i].TestingThreadIndex = newValue;
             }
         }
 
