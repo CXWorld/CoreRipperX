@@ -150,17 +150,48 @@
                   SelectionUnit="FullRow">
 
             <DataGrid.Resources>
+                <!-- Style for AVX group headers in context menu -->
+                <Style x:Key="AvxGroupHeaderStyle" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                    <Setter Property="FontSize" Value="13" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                    <Setter Property="Foreground" Value="{DynamicResource PrimaryHueMidBrush}" />
+                    <Setter Property="Padding" Value="8,6" />
+                </Style>
+                <!-- Style for algorithm entries -->
+                <Style x:Key="AlgorithmEntryStyle" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                    <Setter Property="Padding" Value="24,4,8,4" />
+                </Style>
+
                 <ContextMenu x:Key="RowContextMenu">
-                    <MenuItem Header="{Binding CoreLabel, StringFormat='Stress Test {0}'}">
-                        <MenuItem Header="AVX2 1T"
+                    <MenuItem Header="{Binding CoreLabel, StringFormat='Stress Test {0}'}"
+                              FontWeight="SemiBold">
+                        <!-- AVX2 Group -->
+                        <MenuItem Header="AVX2" Style="{StaticResource AvxGroupHeaderStyle}" IsEnabled="False" />
+                        <MenuItem Header="Mixed 1T" Style="{StaticResource AlgorithmEntryStyle}"
                                   Command="{Binding PlacementTarget.Tag.StressTestCoreWithAlgorithmCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding Converter={StaticResource CoreToRequestConverter}, ConverterParameter=AVX2 1T}" />
-                        <MenuItem Header="AVX512 1T"
+                        <MenuItem Header="Compute 1T" Style="{StaticResource AlgorithmEntryStyle}"
+                                  Command="{Binding PlacementTarget.Tag.StressTestCoreWithAlgorithmCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding Converter={StaticResource CoreToRequestConverter}, ConverterParameter=AVX2 Compute 1T}" />
+                        <MenuItem Header="FP64 1T" Style="{StaticResource AlgorithmEntryStyle}"
+                                  Command="{Binding PlacementTarget.Tag.StressTestCoreWithAlgorithmCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding Converter={StaticResource CoreToRequestConverter}, ConverterParameter=AVX2 FP64 1T}" />
+                        <Separator Margin="8,4" />
+                        <!-- AVX512 Group -->
+                        <MenuItem Header="{Binding PlacementTarget.Tag.Avx512HeaderText, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  Style="{StaticResource AvxGroupHeaderStyle}" IsEnabled="False" />
+                        <MenuItem Header="Mixed 1T" Style="{StaticResource AlgorithmEntryStyle}"
+                                  IsEnabled="{Binding PlacementTarget.Tag.IsAvx512Supported, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   Command="{Binding PlacementTarget.Tag.StressTestCoreWithAlgorithmCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding Converter={StaticResource CoreToRequestConverter}, ConverterParameter=AVX512 1T}" />
-                        <MenuItem Header="Memory Chase"
+                        <MenuItem Header="Compute 1T" Style="{StaticResource AlgorithmEntryStyle}"
+                                  IsEnabled="{Binding PlacementTarget.Tag.IsAvx512Supported, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   Command="{Binding PlacementTarget.Tag.StressTestCoreWithAlgorithmCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                  CommandParameter="{Binding Converter={StaticResource CoreToRequestConverter}, ConverterParameter=Memory Chase}" />
+                                  CommandParameter="{Binding Converter={StaticResource CoreToRequestConverter}, ConverterParameter=AVX512 Compute 1T}" />
+                        <MenuItem Header="FP64 1T" Style="{StaticResource AlgorithmEntryStyle}"
+                                  IsEnabled="{Binding PlacementTarget.Tag.IsAvx512Supported, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  Command="{Binding PlacementTarget.Tag.StressTestCoreWithAlgorithmCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding Converter={StaticResource CoreToRequestConverter}, ConverterParameter=AVX512 FP64 1T}" />
                     </MenuItem>
                     <Separator />
                     <MenuItem Header="Cancel Stress Test"

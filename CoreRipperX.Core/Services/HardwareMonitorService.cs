@@ -12,6 +12,8 @@ public class HardwareMonitorService : IHardwareMonitorService
     private readonly List<CoreData> _coreDataList = new();
     private readonly Subject<IReadOnlyList<CoreData>> _coreDataSubject = new();
     private IDisposable? _timerSubscription;
+    private CancellationTokenSource? _monitorCts;
+    private Thread? _monitorThread;
     private IHardware? _cpu;
     private bool _isInitialized;
     private bool _disposed;
@@ -227,15 +229,42 @@ public class HardwareMonitorService : IHardwareMonitorService
         // Initial update
         UpdateSensorData();
 
-        _timerSubscription = Observable
-            .Interval(interval)
-            .Subscribe(_ => UpdateSensorData());
+        _monitorCts = new CancellationTokenSource();
+        var token = _monitorCts.Token;
+        var intervalMs = Math.Max(1, (int)interval.TotalMilliseconds);
+
+        _monitorThread = new Thread(() =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                var start = Environment.TickCount64;
+                UpdateSensorData();
+                var elapsed = Environment.TickCount64 - start;
+                var waitMs = intervalMs - (int)elapsed;
+                if (waitMs > 0)
+                {
+                    token.WaitHandle.WaitOne(waitMs);
+                }
+            }
+        })
+        {
+            IsBackground = true,
+            Priority = ThreadPriority.AboveNormal,
+            Name = "HardwareMonitor"
+        };
+        _monitorThread.Start();
     }
 
     public void StopMonitoring()
     {
         _timerSubscription?.Dispose();
         _timerSubscription = null;
+
+        _monitorCts?.Cancel();
+        _monitorThread?.Join(200);
+        _monitorThread = null;
+        _monitorCts?.Dispose();
+        _monitorCts = null;
     }
 
     private void UpdateSensorData()

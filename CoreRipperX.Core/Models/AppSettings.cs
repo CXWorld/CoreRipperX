@@ -23,9 +23,16 @@ public partial class AppSettings : ObservableObject
     [
         "AVX2 1T",
         "AVX2 nT",
+        "AVX2 Compute 1T",
+        "AVX2 Compute nT",
+        "AVX2 FP64 1T",
+        "AVX2 FP64 nT",
         "AVX512 1T",
         "AVX512 nT",
-        "Memory Chase"
+        "AVX512 Compute 1T",
+        "AVX512 Compute nT",
+        "AVX512 FP64 1T",
+        "AVX512 FP64 nT"
     ];
 
     /// <summary>
@@ -34,8 +41,11 @@ public partial class AppSettings : ObservableObject
     public string[] SingleThreadAlgorithms { get; } =
     [
         "AVX2 1T",
+        "AVX2 Compute 1T",
+        "AVX2 FP64 1T",
         "AVX512 1T",
-        "Memory Chase"
+        "AVX512 Compute 1T",
+        "AVX512 FP64 1T"
     ];
 
     public int[] AvailablePollingRates { get; } = [250, 500, 1000, 2000];

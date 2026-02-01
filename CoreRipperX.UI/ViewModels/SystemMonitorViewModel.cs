@@ -1,6 +1,10 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Reactive.Linq;
+using System.Runtime.Intrinsics.X86;
+using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CoreRipperX.Core.Models;
@@ -15,6 +19,8 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
     private readonly AppSettings _settings;
     private IDisposable? _subscription;
     private IDisposable? _stressTestSubscription;
+    private long _lastCoreUiUpdateTicks;
+    private long _lastProgressUiUpdateTicks;
 
     [ObservableProperty]
     private string _cpuName = "Loading...";
@@ -68,6 +74,10 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
 
     public string[] SingleThreadAlgorithms => _settings.SingleThreadAlgorithms;
 
+    public bool IsAvx512Supported => Avx512F.IsSupported;
+
+    public string Avx512HeaderText => Avx512F.IsSupported ? "AVX512" : "AVX512 (N/A)";
+
     public SystemMonitorViewModel(IHardwareMonitorService hardwareService, IStressTestService stressTestService, AppSettings settings)
     {
         _hardwareService = hardwareService;
@@ -89,18 +99,19 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
         IsHybridCpu = _hardwareService.IsHybridCpu;
         OnPropertyChanged(nameof(HasMultipleThreadsPerCore));
 
-        // Sample hardware updates to reduce UI thread load during heavy AVX operations
-        // This ensures UI remains responsive even when stress tests consume CPU resources
-        _subscription = _hardwareService.CoreDataStream
-            .Sample(TimeSpan.FromMilliseconds(100))
-            .ObserveOn(SynchronizationContext.Current!)
-            .Subscribe(OnCoreDataUpdated);
+        // Use dispatcher with Send priority for highest priority async UI updates
+        // This ensures UI updates are processed immediately even under heavy CPU load
+        // Note: We avoid Rx Sample/Throttle operators as they use ThreadPool timers which get
+        // starved during heavy AVX operations. Instead, throttling is done in the callbacks.
+        var dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
 
-        // Throttle stress test progress to avoid flooding UI with rapid updates
+        // Subscribe directly - throttling handled in OnCoreDataUpdated via _lastCoreUiUpdateTicks
+        _subscription = _hardwareService.CoreDataStream
+            .Subscribe(data => dispatcher.InvokeAsync(() => OnCoreDataUpdated(data), DispatcherPriority.Send));
+
+        // Subscribe directly - throttling handled in OnStressTestProgress via _lastProgressUiUpdateTicks
         _stressTestSubscription = _stressTestService.ProgressStream
-            .Throttle(TimeSpan.FromMilliseconds(50))
-            .ObserveOn(SynchronizationContext.Current!)
-            .Subscribe(OnStressTestProgress);
+            .Subscribe(progress => dispatcher.InvokeAsync(() => OnStressTestProgress(progress), DispatcherPriority.Send));
 
         _settings.PropertyChanged += OnSettingsChanged;
         _hardwareService.StartMonitoring(TimeSpan.FromMilliseconds(_settings.PollingRateMs));
@@ -116,6 +127,13 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
 
     private void OnCoreDataUpdated(IReadOnlyList<CoreData> coreDataList)
     {
+        var minIntervalMs = IsStressTestRunning ? 250 : 100;
+        var nowTicks = Stopwatch.GetTimestamp();
+        var elapsedMs = (nowTicks - _lastCoreUiUpdateTicks) * 1000 / Stopwatch.Frequency;
+        if (elapsedMs < minIntervalMs)
+            return;
+        _lastCoreUiUpdateTicks = nowTicks;
+
         SensorCount = _hardwareService.SensorCount;
         LastError = _hardwareService.LastError;
         DiagnosticInfo = _hardwareService.DiagnosticInfo;
@@ -165,6 +183,14 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
 
     private void OnStressTestProgress(StressTestProgress progress)
     {
+        // Throttle progress updates to 150ms, but always allow state changes through
+        var nowTicks = Stopwatch.GetTimestamp();
+        var elapsedMs = (nowTicks - _lastProgressUiUpdateTicks) * 1000 / Stopwatch.Frequency;
+        bool stateChanged = IsStressTestRunning != progress.IsRunning;
+        if (elapsedMs < 150 && !stateChanged)
+            return;
+        _lastProgressUiUpdateTicks = nowTicks;
+
         // Update stress test status
         IsStressTestRunning = progress.IsRunning;
         StressTestStatus = progress.Status;
@@ -172,7 +198,7 @@ public partial class SystemMonitorViewModel : ObservableObject, IDisposable
 
         // Don't mark rows for nT tests (all cores stressed simultaneously)
         var algorithm = _settings.SelectedAlgorithm;
-        bool isMultiThreaded = algorithm.EndsWith("nT") || algorithm == "Memory Chase";
+        bool isMultiThreaded = algorithm.EndsWith("nT");
 
         if (isMultiThreaded)
         {

@@ -12,12 +12,35 @@ public class AggressiveAvx512Stress : IDisposable
     private const int VectorCount = BufferSize / 64; // 64 bytes per Vector512
 
     private readonly ThreadLocal<AlignedBuffer> _threadBuffers;
+    private int _jitWarmed;
 
     public AggressiveAvx512Stress()
     {
         _threadBuffers = new ThreadLocal<AlignedBuffer>(
             () => new AlignedBuffer(BufferSize),
             trackAllValues: true);
+    }
+
+    public void WarmUpJit()
+    {
+        if (!Avx512F.IsSupported)
+            return;
+
+        if (Interlocked.Exchange(ref _jitWarmed, 1) == 1)
+            return;
+
+        var mul1 = Vector512.Create(1.0000001f);
+        var mul2 = Vector512.Create(0.9999999f);
+        var add1 = Vector512.Create(0.00000001f);
+        var add2 = Vector512.Create(-0.00000001f);
+
+        var dMul1 = Vector512.Create(1.000000000001);
+        var dMul2 = Vector512.Create(0.999999999999);
+        var dAdd1 = Vector512.Create(0.0000000000001);
+        var dAdd2 = Vector512.Create(-0.0000000000001);
+
+        StressComputeHot(mul1, mul2, add1, add2, CancellationToken.None);
+        StressComputeHotDouble(dMul1, dMul2, dAdd1, dAdd2, CancellationToken.None);
     }
 
     public void RunStress(int coreIndex, CancellationToken token)
@@ -51,31 +74,223 @@ public class AggressiveAvx512Stress : IDisposable
         {
             while (!token.IsCancellationRequested)
             {
+                // === PHASE 0: Hot compute-only FMA saturation ===
+                StressComputeHot(mul1, mul2, add1, add2, token);
+
                 // === PHASE 1: Memory Bandwidth + Compute ===
                 StressMemoryCompute(spanFloat, mul1, mul2, add1, add2);
 
-                // === PHASE 2: Pure Register Pressure (20 accumulators) ===
-                StressPureCompute(mul1, mul2, add1, add2);
-
-                // === PHASE 3: Mixed Int/Float on Different Ports ===
+                // === PHASE 2: Mixed Int/Float on Different Ports ===
                 StressMixedIntFloat(spanFloat, spanInt, intMul, intAdd, mul1, add1);
 
-                // === PHASE 4: Shuffle/Permute/Compress ===
+                // === PHASE 3: Shuffle/Permute/Compress ===
                 StressShufflePermute(spanFloat);
 
-                // === PHASE 5: Additional FMA stress ===
+                // === PHASE 4: Additional FMA stress ===
                 StressAdditionalFma(spanFloat, mul1, mul2, add1, add2);
 
-                // === PHASE 6: Mask Operations ===
+                // === PHASE 5: Mask Operations ===
                 StressMaskOps(spanFloat, mul1, add1);
 
-                // === PHASE 7: Transcendental Approximations (expensive) ===
+                // === PHASE 6: Transcendental Approximations (expensive) ===
                 StressTranscendental(spanFloat);
 
                 token.ThrowIfCancellationRequested();
             }
         }
         catch (OperationCanceledException) { }
+    }
+
+    public void RunComputeHotOnly(int coreIndex, CancellationToken token)
+    {
+        if (!Avx512F.IsSupported)
+            throw new PlatformNotSupportedException("AVX-512F not supported");
+
+        var mul1 = Vector512.Create(1.0000001f);
+        var mul2 = Vector512.Create(0.9999999f);
+        var add1 = Vector512.Create(0.00000001f);
+        var add2 = Vector512.Create(-0.00000001f);
+
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                StressComputeHot(mul1, mul2, add1, add2, token);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    public void RunFp64ComputeHotOnly(int coreIndex, CancellationToken token)
+    {
+        if (!Avx512F.IsSupported)
+            throw new PlatformNotSupportedException("AVX-512F not supported");
+
+        var mul1 = Vector512.Create(1.000000000001);
+        var mul2 = Vector512.Create(0.999999999999);
+        var add1 = Vector512.Create(0.0000000000001);
+        var add2 = Vector512.Create(-0.0000000000001);
+
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                StressComputeHotDouble(mul1, mul2, add1, add2, token);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void StressComputeHotDouble(
+        Vector512<double> mul1, Vector512<double> mul2,
+        Vector512<double> add1, Vector512<double> add2,
+        CancellationToken token)
+    {
+        // 12 chains (8 doubles per vector) to keep FMA units saturated
+        var a00 = Vector512.Create(1.000);
+        var a01 = Vector512.Create(1.050);
+        var a02 = Vector512.Create(1.100);
+        var a03 = Vector512.Create(1.150);
+        var a04 = Vector512.Create(1.200);
+        var a05 = Vector512.Create(1.250);
+        var a06 = Vector512.Create(1.300);
+        var a07 = Vector512.Create(1.350);
+        var a08 = Vector512.Create(1.400);
+        var a09 = Vector512.Create(1.450);
+        var a10 = Vector512.Create(1.500);
+        var a11 = Vector512.Create(1.550);
+
+        for (int i = 0; i < 160_000; i++)
+        {
+            a00 = Avx512F.FusedMultiplyAdd(a00, mul1, add1);
+            a01 = Avx512F.FusedMultiplyAdd(a01, mul2, add2);
+            a02 = Avx512F.FusedMultiplySubtract(a02, mul1, add1);
+            a03 = Avx512F.FusedMultiplySubtract(a03, mul2, add2);
+            a04 = Avx512F.FusedMultiplyAddNegated(a04, mul1, add1);
+            a05 = Avx512F.FusedMultiplyAddNegated(a05, mul2, add2);
+            a06 = Avx512F.FusedMultiplySubtractNegated(a06, mul1, add1);
+            a07 = Avx512F.FusedMultiplySubtractNegated(a07, mul2, add2);
+            a08 = Avx512F.FusedMultiplyAdd(a08, mul1, a00);
+            a09 = Avx512F.FusedMultiplyAdd(a09, mul2, a01);
+            a10 = Avx512F.FusedMultiplyAdd(a10, mul1, a02);
+            a11 = Avx512F.FusedMultiplyAdd(a11, mul2, a03);
+
+            a00 = Avx512F.Multiply(a00, mul2);
+            a01 = Avx512F.Add(a01, add1);
+            a02 = Avx512F.Multiply(a02, mul1);
+            a03 = Avx512F.Add(a03, add2);
+            a04 = Avx512F.Subtract(a04, add1);
+            a05 = Avx512F.Subtract(a05, add2);
+
+            if ((i & 0xF) == 0)
+                Thread.Yield();
+
+            if ((i & 0x3FFF) == 0 && token.IsCancellationRequested)
+                token.ThrowIfCancellationRequested();
+        }
+
+        var sum = Avx512F.Add(a00, a01);
+        sum = Avx512F.Add(sum, a02); sum = Avx512F.Add(sum, a03);
+        sum = Avx512F.Add(sum, a04); sum = Avx512F.Add(sum, a05);
+        sum = Avx512F.Add(sum, a06); sum = Avx512F.Add(sum, a07);
+        sum = Avx512F.Add(sum, a08); sum = Avx512F.Add(sum, a09);
+        sum = Avx512F.Add(sum, a10); sum = Avx512F.Add(sum, a11);
+
+        var nanCheck = Avx512F.CompareEqual(sum, sum);
+        if (nanCheck != Vector512<double>.AllBitsSet)
+            throw new Exception("AVX-512 computation error detected");
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void StressComputeHot(
+        Vector512<float> mul1, Vector512<float> mul2,
+        Vector512<float> add1, Vector512<float> add2,
+        CancellationToken token)
+    {
+        // 24 independent chains to saturate ZMM/FMA units with minimal memory traffic
+        var a00 = Vector512.Create(1.00f);
+        var a01 = Vector512.Create(1.03f);
+        var a02 = Vector512.Create(1.06f);
+        var a03 = Vector512.Create(1.09f);
+        var a04 = Vector512.Create(1.12f);
+        var a05 = Vector512.Create(1.15f);
+        var a06 = Vector512.Create(1.18f);
+        var a07 = Vector512.Create(1.21f);
+        var a08 = Vector512.Create(1.24f);
+        var a09 = Vector512.Create(1.27f);
+        var a10 = Vector512.Create(1.30f);
+        var a11 = Vector512.Create(1.33f);
+        var a12 = Vector512.Create(1.36f);
+        var a13 = Vector512.Create(1.39f);
+        var a14 = Vector512.Create(1.42f);
+        var a15 = Vector512.Create(1.45f);
+        var a16 = Vector512.Create(1.48f);
+        var a17 = Vector512.Create(1.51f);
+        var a18 = Vector512.Create(1.54f);
+        var a19 = Vector512.Create(1.57f);
+        var a20 = Vector512.Create(1.60f);
+        var a21 = Vector512.Create(1.63f);
+        var a22 = Vector512.Create(1.66f);
+        var a23 = Vector512.Create(1.69f);
+
+        for (int i = 0; i < 180_000; i++)
+        {
+            a00 = Avx512F.FusedMultiplyAdd(a00, mul1, add1);
+            a01 = Avx512F.FusedMultiplyAdd(a01, mul2, add2);
+            a02 = Avx512F.FusedMultiplySubtract(a02, mul1, add1);
+            a03 = Avx512F.FusedMultiplySubtract(a03, mul2, add2);
+            a04 = Avx512F.FusedMultiplyAddNegated(a04, mul1, add1);
+            a05 = Avx512F.FusedMultiplyAddNegated(a05, mul2, add2);
+            a06 = Avx512F.FusedMultiplySubtractNegated(a06, mul1, add1);
+            a07 = Avx512F.FusedMultiplySubtractNegated(a07, mul2, add2);
+            a08 = Avx512F.FusedMultiplyAdd(a08, mul1, a00);
+            a09 = Avx512F.FusedMultiplyAdd(a09, mul2, a01);
+            a10 = Avx512F.FusedMultiplyAdd(a10, mul1, a02);
+            a11 = Avx512F.FusedMultiplyAdd(a11, mul2, a03);
+            a12 = Avx512F.FusedMultiplyAdd(a12, mul1, a04);
+            a13 = Avx512F.FusedMultiplyAdd(a13, mul2, a05);
+            a14 = Avx512F.FusedMultiplyAdd(a14, mul1, a06);
+            a15 = Avx512F.FusedMultiplyAdd(a15, mul2, a07);
+            a16 = Avx512F.FusedMultiplyAdd(a16, mul1, a08);
+            a17 = Avx512F.FusedMultiplyAdd(a17, mul2, a09);
+            a18 = Avx512F.FusedMultiplyAdd(a18, mul1, a10);
+            a19 = Avx512F.FusedMultiplyAdd(a19, mul2, a11);
+            a20 = Avx512F.FusedMultiplyAdd(a20, mul1, a12);
+            a21 = Avx512F.FusedMultiplyAdd(a21, mul2, a13);
+            a22 = Avx512F.FusedMultiplyAdd(a22, mul1, a14);
+            a23 = Avx512F.FusedMultiplyAdd(a23, mul2, a15);
+
+            a00 = Avx512F.Multiply(a00, mul2);
+            a01 = Avx512F.Add(a01, add1);
+            a02 = Avx512F.Multiply(a02, mul1);
+            a03 = Avx512F.Add(a03, add2);
+            a04 = Avx512F.Subtract(a04, add1);
+            a05 = Avx512F.Subtract(a05, add2);
+
+            if ((i & 0xF) == 0)
+                Thread.Yield();
+
+            if ((i & 0x3FFF) == 0 && token.IsCancellationRequested)
+                token.ThrowIfCancellationRequested();
+        }
+
+        var sum = Avx512F.Add(a00, a01);
+        sum = Avx512F.Add(sum, a02); sum = Avx512F.Add(sum, a03);
+        sum = Avx512F.Add(sum, a04); sum = Avx512F.Add(sum, a05);
+        sum = Avx512F.Add(sum, a06); sum = Avx512F.Add(sum, a07);
+        sum = Avx512F.Add(sum, a08); sum = Avx512F.Add(sum, a09);
+        sum = Avx512F.Add(sum, a10); sum = Avx512F.Add(sum, a11);
+        sum = Avx512F.Add(sum, a12); sum = Avx512F.Add(sum, a13);
+        sum = Avx512F.Add(sum, a14); sum = Avx512F.Add(sum, a15);
+        sum = Avx512F.Add(sum, a16); sum = Avx512F.Add(sum, a17);
+        sum = Avx512F.Add(sum, a18); sum = Avx512F.Add(sum, a19);
+        sum = Avx512F.Add(sum, a20); sum = Avx512F.Add(sum, a21);
+        sum = Avx512F.Add(sum, a22); sum = Avx512F.Add(sum, a23);
+
+        var nanCheck = Avx512F.CompareEqual(sum, sum);
+        if (nanCheck != Vector512<float>.AllBitsSet)
+            throw new Exception("AVX-512 computation error detected");
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -113,29 +328,32 @@ public class AggressiveAvx512Stress : IDisposable
                 v6 = Avx512F.FusedMultiplyAdd(v6, mul1, add2);
                 v7 = Avx512F.FusedMultiplyAdd(v7, mul2, add1);
 
-                // Round 2: FMA Negated variants
-                v0 = Avx512F.FusedMultiplyAddNegated(v0, mul2, v1);
-                v2 = Avx512F.FusedMultiplyAddNegated(v2, mul1, v3);
-                v4 = Avx512F.FusedMultiplyAddNegated(v4, mul2, v5);
-                v6 = Avx512F.FusedMultiplyAddNegated(v6, mul1, v7);
+                for (int round = 0; round < 3; round++)
+                {
+                    // Round 2: FMA Negated variants
+                    v0 = Avx512F.FusedMultiplyAddNegated(v0, mul2, v1);
+                    v2 = Avx512F.FusedMultiplyAddNegated(v2, mul1, v3);
+                    v4 = Avx512F.FusedMultiplyAddNegated(v4, mul2, v5);
+                    v6 = Avx512F.FusedMultiplyAddNegated(v6, mul1, v7);
 
-                // Round 3: FMA Subtract
-                v1 = Avx512F.FusedMultiplySubtract(v1, mul1, add1);
-                v3 = Avx512F.FusedMultiplySubtract(v3, mul2, add2);
-                v5 = Avx512F.FusedMultiplySubtract(v5, mul1, add1);
-                v7 = Avx512F.FusedMultiplySubtract(v7, mul2, add2);
+                    // Round 3: FMA Subtract
+                    v1 = Avx512F.FusedMultiplySubtract(v1, mul1, add1);
+                    v3 = Avx512F.FusedMultiplySubtract(v3, mul2, add2);
+                    v5 = Avx512F.FusedMultiplySubtract(v5, mul1, add1);
+                    v7 = Avx512F.FusedMultiplySubtract(v7, mul2, add2);
 
-                // Round 4: Cross-dependencies
-                v0 = Avx512F.FusedMultiplyAdd(v0, mul1, v4);
-                v1 = Avx512F.FusedMultiplyAdd(v1, mul2, v5);
-                v2 = Avx512F.FusedMultiplyAdd(v2, mul1, v6);
-                v3 = Avx512F.FusedMultiplyAdd(v3, mul2, v7);
+                    // Round 4: Cross-dependencies
+                    v0 = Avx512F.FusedMultiplyAdd(v0, mul1, v4);
+                    v1 = Avx512F.FusedMultiplyAdd(v1, mul2, v5);
+                    v2 = Avx512F.FusedMultiplyAdd(v2, mul1, v6);
+                    v3 = Avx512F.FusedMultiplyAdd(v3, mul2, v7);
 
-                // Round 5: More FMA to increase compute density
-                v4 = Avx512F.FusedMultiplyAdd(v4, mul1, v0);
-                v5 = Avx512F.FusedMultiplyAdd(v5, mul2, v1);
-                v6 = Avx512F.FusedMultiplyAdd(v6, mul1, v2);
-                v7 = Avx512F.FusedMultiplyAdd(v7, mul2, v3);
+                    // Round 5: More FMA to increase compute density
+                    v4 = Avx512F.FusedMultiplyAdd(v4, mul1, v0);
+                    v5 = Avx512F.FusedMultiplyAdd(v5, mul2, v1);
+                    v6 = Avx512F.FusedMultiplyAdd(v6, mul1, v2);
+                    v7 = Avx512F.FusedMultiplyAdd(v7, mul2, v3);
+                }
 
                 // Store
                 v0.StoreUnsafe(ref ptr);
@@ -148,84 +366,6 @@ public class AggressiveAvx512Stress : IDisposable
                 v7.StoreUnsafe(ref Unsafe.Add(ref ptr, 112));
             }
         }
-    }
-
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void StressPureCompute(
-        Vector512<float> mul1, Vector512<float> mul2,
-        Vector512<float> add1, Vector512<float> add2)
-    {
-        // 20 independent chains - exploit 32 ZMM registers
-        var a00 = Vector512.Create(1.00f);
-        var a01 = Vector512.Create(1.05f);
-        var a02 = Vector512.Create(1.10f);
-        var a03 = Vector512.Create(1.15f);
-        var a04 = Vector512.Create(1.20f);
-        var a05 = Vector512.Create(1.25f);
-        var a06 = Vector512.Create(1.30f);
-        var a07 = Vector512.Create(1.35f);
-        var a08 = Vector512.Create(1.40f);
-        var a09 = Vector512.Create(1.45f);
-        var a10 = Vector512.Create(1.50f);
-        var a11 = Vector512.Create(1.55f);
-        var a12 = Vector512.Create(1.60f);
-        var a13 = Vector512.Create(1.65f);
-        var a14 = Vector512.Create(1.70f);
-        var a15 = Vector512.Create(1.75f);
-        var a16 = Vector512.Create(1.80f);
-        var a17 = Vector512.Create(1.85f);
-        var a18 = Vector512.Create(1.90f);
-        var a19 = Vector512.Create(1.95f);
-
-        for (int i = 0; i < 80_000; i++)
-        {
-            // All FMA variants to hit different micro-ops
-            a00 = Avx512F.FusedMultiplyAdd(a00, mul1, add1);
-            a01 = Avx512F.FusedMultiplyAdd(a01, mul2, add2);
-            a02 = Avx512F.FusedMultiplySubtract(a02, mul1, add1);
-            a03 = Avx512F.FusedMultiplySubtract(a03, mul2, add2);
-            a04 = Avx512F.FusedMultiplyAddNegated(a04, mul1, add1);
-            a05 = Avx512F.FusedMultiplyAddNegated(a05, mul2, add2);
-            a06 = Avx512F.FusedMultiplySubtractNegated(a06, mul1, add1);
-            a07 = Avx512F.FusedMultiplySubtractNegated(a07, mul2, add2);
-            a08 = Avx512F.FusedMultiplyAdd(a08, mul1, a00);
-            a09 = Avx512F.FusedMultiplyAdd(a09, mul2, a01);
-            a10 = Avx512F.FusedMultiplyAdd(a10, mul1, a02);
-            a11 = Avx512F.FusedMultiplyAdd(a11, mul2, a03);
-            a12 = Avx512F.FusedMultiplyAdd(a12, mul1, a04);
-            a13 = Avx512F.FusedMultiplyAdd(a13, mul2, a05);
-            a14 = Avx512F.FusedMultiplyAdd(a14, mul1, a06);
-            a15 = Avx512F.FusedMultiplyAdd(a15, mul2, a07);
-            a16 = Avx512F.FusedMultiplyAdd(a16, mul1, a08);
-            a17 = Avx512F.FusedMultiplyAdd(a17, mul2, a09);
-            a18 = Avx512F.FusedMultiplyAdd(a18, mul1, a10);
-            a19 = Avx512F.FusedMultiplyAdd(a19, mul2, a11);
-
-            // Extra ops on port 0/1
-            a00 = Avx512F.Multiply(a00, mul2);
-            a01 = Avx512F.Add(a01, add1);
-            a02 = Avx512F.Multiply(a02, mul1);
-            a03 = Avx512F.Add(a03, add2);
-            a04 = Avx512F.Subtract(a04, add1);
-            a05 = Avx512F.Subtract(a05, add2);
-        }
-
-        // Prevent DCE
-        var sum = Avx512F.Add(a00, a01);
-        sum = Avx512F.Add(sum, a02); sum = Avx512F.Add(sum, a03);
-        sum = Avx512F.Add(sum, a04); sum = Avx512F.Add(sum, a05);
-        sum = Avx512F.Add(sum, a06); sum = Avx512F.Add(sum, a07);
-        sum = Avx512F.Add(sum, a08); sum = Avx512F.Add(sum, a09);
-        sum = Avx512F.Add(sum, a10); sum = Avx512F.Add(sum, a11);
-        sum = Avx512F.Add(sum, a12); sum = Avx512F.Add(sum, a13);
-        sum = Avx512F.Add(sum, a14); sum = Avx512F.Add(sum, a15);
-        sum = Avx512F.Add(sum, a16); sum = Avx512F.Add(sum, a17);
-        sum = Avx512F.Add(sum, a18); sum = Avx512F.Add(sum, a19);
-
-        // NaN check - CompareEqual returns all-ones for equal elements, NaN != NaN
-        var nanCheck = Avx512F.CompareEqual(sum, sum);
-        if (nanCheck != Vector512<float>.AllBitsSet)
-            throw new Exception("AVX-512 computation error detected");
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -297,8 +437,12 @@ public class AggressiveAvx512Stress : IDisposable
             // Store
             f0.StoreUnsafe(ref fptr);
             f1.StoreUnsafe(ref Unsafe.Add(ref fptr, 16));
+            f2.StoreUnsafe(ref Unsafe.Add(ref fptr, 32));
+            f3.StoreUnsafe(ref Unsafe.Add(ref fptr, 48));
             i0.StoreUnsafe(ref iptr);
             i1.StoreUnsafe(ref Unsafe.Add(ref iptr, 16));
+            i2.StoreUnsafe(ref Unsafe.Add(ref iptr, 32));
+            i3.StoreUnsafe(ref Unsafe.Add(ref iptr, 48));
         }
     }
 

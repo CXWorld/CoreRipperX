@@ -20,6 +20,11 @@ public class StressTestService : IStressTestService, IDisposable
     private CancellationTokenSource? _cts;
     private int _totalErrorCount;
 
+    public StressTestService()
+    {
+        StartJitWarmup();
+    }
+
     public bool IsRunning { get; private set; }
     public IObservable<StressTestProgress> ProgressStream => _progressSubject.AsObservable();
 
@@ -27,14 +32,24 @@ public class StressTestService : IStressTestService, IDisposable
     {
         if (IsRunning) return;
 
+        var algorithm = settings.SelectedAlgorithm;
+
+        // Check AVX512 support before starting
+        if (algorithm.StartsWith("AVX512", StringComparison.OrdinalIgnoreCase) && !Avx512F.IsSupported)
+        {
+            _progressSubject.OnNext(new StressTestProgress(0, Environment.ProcessorCount, false,
+                "AVX-512 is not supported on this CPU. Please select an AVX2 algorithm.",
+                LastError: "AVX-512 not supported"));
+            return;
+        }
+
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
         IsRunning = true;
         _totalErrorCount = 0;
 
         int numCores = Environment.ProcessorCount;
         var token = _cts.Token;
-        var algorithm = settings.SelectedAlgorithm;
-        bool isMultiThreaded = algorithm.EndsWith("nT") || algorithm == "Memory Chase";
+        bool isMultiThreaded = algorithm.EndsWith("nT");
 
         try
         {
@@ -108,14 +123,15 @@ public class StressTestService : IStressTestService, IDisposable
     private async Task RunMultiThreadedStressAsync(AppSettings settings, CancellationToken token)
     {
         int numCores = Environment.ProcessorCount;
-        _progressSubject.OnNext(new StressTestProgress(0, numCores, true, $"Stressing all {numCores} threads...", _totalErrorCount));
+        int stressThreads = numCores;
+        _progressSubject.OnNext(new StressTestProgress(0, numCores, true, $"Stressing all {stressThreads} threads...", _totalErrorCount));
 
         using var stressCts = CancellationTokenSource.CreateLinkedTokenSource(token);
         var stressToken = stressCts.Token;
 
         // Launch stress on all cores simultaneously
-        var tasks = new Task[numCores];
-        for (int i = 0; i < numCores; i++)
+        var tasks = new Task[stressThreads];
+        for (int i = 0; i < stressThreads; i++)
         {
             int core = i;
             tasks[i] = Task.Run(() => RunStressOnCore(core, settings.SelectedAlgorithm, stressToken), stressToken);
@@ -143,6 +159,28 @@ public class StressTestService : IStressTestService, IDisposable
         }
     }
 
+    private void StartJitWarmup()
+    {
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                _avx2Stress.WarmUpJit();
+                _avx512Stress.WarmUpJit();
+            }
+            catch
+            {
+            }
+        })
+        {
+            IsBackground = true,
+            Priority = ThreadPriority.BelowNormal,
+            Name = "StressWarmup"
+        };
+
+        thread.Start();
+    }
+
     private void RunStressOnCore(int coreIndex, string algorithm, CancellationToken token)
     {
         // Lower thread priority so stress tests don't starve the UI thread
@@ -160,12 +198,25 @@ public class StressTestService : IStressTestService, IDisposable
                 case "AVX2 nT":
                     RunAvx2Stress(coreIndex, token);
                     break;
+                case "AVX2 Compute 1T":
+                case "AVX2 Compute nT":
+                    RunAvx2ComputeHot(coreIndex, token);
+                    break;
+                case "AVX2 FP64 1T":
+                case "AVX2 FP64 nT":
+                    RunAvx2Fp64(coreIndex, token);
+                    break;
                 case "AVX512 1T":
                 case "AVX512 nT":
                     RunAvx512Stress(coreIndex, token);
                     break;
-                case "Memory Chase":
-                    RunMemoryChaseStress(coreIndex, token);
+                case "AVX512 Compute 1T":
+                case "AVX512 Compute nT":
+                    RunAvx512ComputeHot(coreIndex, token);
+                    break;
+                case "AVX512 FP64 1T":
+                case "AVX512 FP64 nT":
+                    RunAvx512Fp64(coreIndex, token);
                     break;
                 default:
                     RunAvx2Stress(coreIndex, token);
@@ -216,6 +267,48 @@ public class StressTestService : IStressTestService, IDisposable
         }
     }
 
+    private void RunAvx2ComputeHot(int coreIndex, CancellationToken token)
+    {
+        try
+        {
+            _avx2Stress.RunComputeHotOnly(coreIndex, token);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Interlocked.Increment(ref _totalErrorCount);
+            var errorMsg = $"Thread {coreIndex}: Critical error - {ex.GetType().Name}: {ex.Message}";
+            _progressSubject.OnNext(new StressTestProgress(
+                coreIndex,
+                Environment.ProcessorCount,
+                true,
+                errorMsg,
+                _totalErrorCount,
+                errorMsg));
+        }
+    }
+
+    private void RunAvx2Fp64(int coreIndex, CancellationToken token)
+    {
+        try
+        {
+            _avx2Stress.RunFp64ComputeHotOnly(coreIndex, token);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Interlocked.Increment(ref _totalErrorCount);
+            var errorMsg = $"Thread {coreIndex}: Critical error - {ex.GetType().Name}: {ex.Message}";
+            _progressSubject.OnNext(new StressTestProgress(
+                coreIndex,
+                Environment.ProcessorCount,
+                true,
+                errorMsg,
+                _totalErrorCount,
+                errorMsg));
+        }
+    }
+
     private void RunAvx512Stress(int coreIndex, CancellationToken token)
     {
         if (!Avx512F.IsSupported)
@@ -234,6 +327,74 @@ public class StressTestService : IStressTestService, IDisposable
         try
         {
             _avx512Stress.RunStress(coreIndex, token);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Interlocked.Increment(ref _totalErrorCount);
+            var errorMsg = $"Thread {coreIndex}: Critical error - {ex.GetType().Name}: {ex.Message}";
+            _progressSubject.OnNext(new StressTestProgress(
+                coreIndex,
+                Environment.ProcessorCount,
+                true,
+                errorMsg,
+                _totalErrorCount,
+                errorMsg));
+        }
+    }
+
+    private void RunAvx512ComputeHot(int coreIndex, CancellationToken token)
+    {
+        if (!Avx512F.IsSupported)
+        {
+            var errorMsg = $"Thread {coreIndex}: AVX-512 not supported on this CPU";
+            _progressSubject.OnNext(new StressTestProgress(
+                coreIndex,
+                Environment.ProcessorCount,
+                true,
+                errorMsg,
+                _totalErrorCount,
+                errorMsg));
+            return;
+        }
+
+        try
+        {
+            _avx512Stress.RunComputeHotOnly(coreIndex, token);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Interlocked.Increment(ref _totalErrorCount);
+            var errorMsg = $"Thread {coreIndex}: Critical error - {ex.GetType().Name}: {ex.Message}";
+            _progressSubject.OnNext(new StressTestProgress(
+                coreIndex,
+                Environment.ProcessorCount,
+                true,
+                errorMsg,
+                _totalErrorCount,
+                errorMsg));
+        }
+    }
+
+    private void RunAvx512Fp64(int coreIndex, CancellationToken token)
+    {
+        if (!Avx512F.IsSupported)
+        {
+            var errorMsg = $"Thread {coreIndex}: AVX-512 not supported on this CPU";
+            _progressSubject.OnNext(new StressTestProgress(
+                coreIndex,
+                Environment.ProcessorCount,
+                true,
+                errorMsg,
+                _totalErrorCount,
+                errorMsg));
+            return;
+        }
+
+        try
+        {
+            _avx512Stress.RunFp64ComputeHotOnly(coreIndex, token);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -338,6 +499,17 @@ public class StressTestService : IStressTestService, IDisposable
     public async Task RunStressTestOnCoreAsync(CoreData coreData, AppSettings settings, CancellationToken cancellation = default)
     {
         if (IsRunning) return;
+
+        var algorithm = settings.SelectedAlgorithm;
+
+        // Check AVX512 support before starting
+        if (algorithm.StartsWith("AVX512", StringComparison.OrdinalIgnoreCase) && !Avx512F.IsSupported)
+        {
+            _progressSubject.OnNext(new StressTestProgress(0, coreData.ThreadCount, false,
+                "AVX-512 is not supported on this CPU. Please select an AVX2 algorithm.",
+                LastError: "AVX-512 not supported"));
+            return;
+        }
 
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
         IsRunning = true;

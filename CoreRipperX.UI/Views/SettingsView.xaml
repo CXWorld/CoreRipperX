@@ -4,9 +4,28 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:componentModel="clr-namespace:System.ComponentModel;assembly=WindowsBase"
+             xmlns:helpers="clr-namespace:CoreRipperX.UI.Helpers"
              xmlns:viewmodels="clr-namespace:CoreRipperX.UI.ViewModels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=viewmodels:SettingsViewModel}">
+    <UserControl.Resources>
+        <helpers:LoadGroupHeaderConverter x:Key="LoadGroupHeaderConverter" />
+        <helpers:AvxGroupHeaderConverter x:Key="AvxGroupHeaderConverter" />
+        <CollectionViewSource x:Key="AlgorithmOptionsView"
+                              Source="{Binding AlgorithmOptions}">
+            <CollectionViewSource.SortDescriptions>
+                <componentModel:SortDescription PropertyName="LoadGroupOrder" Direction="Ascending" />
+                <componentModel:SortDescription PropertyName="AvxGroupOrder" Direction="Ascending" />
+                <componentModel:SortDescription PropertyName="ThreadOrder" Direction="Ascending" />
+                <componentModel:SortDescription PropertyName="DisplayName" Direction="Ascending" />
+            </CollectionViewSource.SortDescriptions>
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="LoadGroupOrder" />
+                <PropertyGroupDescription PropertyName="AvxGroupOrder" />
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+    </UserControl.Resources>
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -89,11 +108,69 @@
                            VerticalAlignment="Center"
                            Style="{StaticResource MaterialDesignBody1TextBlock}" />
                 <ComboBox Grid.Row="6" Grid.Column="1"
-                          ItemsSource="{Binding Settings.AvailableAlgorithms}"
-                          SelectedItem="{Binding Settings.SelectedAlgorithm}"
-                          Width="200"
+                          ItemsSource="{Binding Source={StaticResource AlgorithmOptionsView}}"
+                          DisplayMemberPath="DisplayName"
+                          SelectedValuePath="AlgorithmKey"
+                          SelectedValue="{Binding Settings.SelectedAlgorithm}"
+                          Width="220"
                           HorizontalAlignment="Left"
-                          Style="{StaticResource MaterialDesignOutlinedComboBox}" />
+                          Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                    <ComboBox.GroupStyle>
+                        <!-- Top-level group: Load category (Light/Medium/Heavy) -->
+                        <GroupStyle>
+                            <GroupStyle.HeaderTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource MaterialDesignDivider}"
+                                            BorderThickness="0,1,0,0"
+                                            Margin="8,4,0,0"
+                                            Padding="0,8,0,4">
+                                        <TextBlock Text="{Binding Name, Converter={StaticResource LoadGroupHeaderConverter}}"
+                                                   FontSize="14"
+                                                   FontWeight="Bold"
+                                                   Foreground="{DynamicResource PrimaryHueMidBrush}" />
+                                    </Border>
+                                </DataTemplate>
+                            </GroupStyle.HeaderTemplate>
+                            <GroupStyle.Panel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Margin="0,0,0,4" />
+                                </ItemsPanelTemplate>
+                            </GroupStyle.Panel>
+                        </GroupStyle>
+                        <!-- Sub-group: AVX type (AVX2/AVX512) -->
+                        <GroupStyle>
+                            <GroupStyle.HeaderTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource MaterialDesignToolBarBackground}"
+                                            CornerRadius="3"
+                                            Margin="8,4,4,2"
+                                            Padding="6,2">
+                                        <TextBlock Text="{Binding Name, Converter={StaticResource AvxGroupHeaderConverter}}"
+                                                   FontSize="11"
+                                                   FontWeight="Medium"
+                                                   Opacity="0.85" />
+                                    </Border>
+                                </DataTemplate>
+                            </GroupStyle.HeaderTemplate>
+                            <GroupStyle.ContainerStyle>
+                                <Style TargetType="{x:Type GroupItem}">
+                                    <Setter Property="Margin" Value="8,0,0,0" />
+                                </Style>
+                            </GroupStyle.ContainerStyle>
+                        </GroupStyle>
+                    </ComboBox.GroupStyle>
+                    <ComboBox.ItemContainerStyle>
+                        <Style TargetType="{x:Type ComboBoxItem}" BasedOn="{StaticResource MaterialDesignComboBoxItemStyle}">
+                            <Setter Property="Padding" Value="20,8,8,8" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsAvailable}" Value="False">
+                                    <Setter Property="Opacity" Value="0.5" />
+                                    <Setter Property="FontStyle" Value="Italic" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ComboBox.ItemContainerStyle>
+                </ComboBox>
 
                 <!-- Critical Temperature Setting -->
                 <TextBlock Grid.Row="8" Grid.Column="0"
