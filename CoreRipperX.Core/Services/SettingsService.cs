@@ -37,12 +37,7 @@ public class SettingsService : ISettingsService
                 return new AppSettings();
             }
 
-            // Migrate old "AVX2" algorithm name to "AVX2 1T"
             var algorithm = data.SelectedAlgorithm;
-            if (algorithm == "AVX2")
-            {
-                algorithm = "AVX2 1T";
-            }
 
             return new AppSettings
             {

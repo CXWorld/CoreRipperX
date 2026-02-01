@@ -1,3 +1,7 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CoreRipperX.Core.Models;
+using CoreRipperX.Core.Services;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -5,10 +9,6 @@ using System.Reactive.Linq;
 using System.Runtime.Intrinsics.X86;
 using System.Windows;
 using System.Windows.Threading;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using CoreRipperX.Core.Models;
-using CoreRipperX.Core.Services;
 
 namespace CoreRipperX.UI.ViewModels;
 

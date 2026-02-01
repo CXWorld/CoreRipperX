@@ -40,7 +40,7 @@ public class AggressiveAvx2Stress : IDisposable
         StressComputeHotDouble(dMul1, dMul2, dAdd1, dAdd2, CancellationToken.None);
     }
 
-    public void RunStress(int coreIndex, CancellationToken token)
+    public void RunMixedStress(int coreIndex, CancellationToken token)
     {
         var buffer = _threadBuffers.Value!;
         var spanFloat = buffer.AsSpan<float>();
@@ -341,10 +341,6 @@ public class AggressiveAvx2Stress : IDisposable
             i1 = Avx2.Add(Avx2.And(i1, intMask), intAdd);
             i2 = Avx2.Add(Avx2.And(i2, intMask), intAdd);
             i3 = Avx2.Add(Avx2.And(i3, intMask), intAdd);
-
-            // More float
-            f0 = Avx.Sqrt(Avx.Max(f0, Vector256.Create(0.0001f)));
-            f1 = Avx.Sqrt(Avx.Max(f1, Vector256.Create(0.0001f)));
 
             // Integer multiply (expensive)
             i0 = Avx2.MultiplyLow(i0, i1);

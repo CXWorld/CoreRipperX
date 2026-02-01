@@ -4,16 +4,11 @@ using LibreHardwareMonitor.Hardware;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.Intrinsics.X86;
-using System.Security.Cryptography;
 
 namespace CoreRipperX.Core.Services;
 
 public class StressTestService : IStressTestService, IDisposable
 {
-    private const int MemoryChaseBufferSize = 256 * 1024 * 1024; // 256 MB >> L3 cache
-    private const int MemoryChaseHopsPerBurst = 10_000;
-    private const int MemoryChaseSleepMs = 5;
-
     private readonly Subject<StressTestProgress> _progressSubject = new();
     private readonly AggressiveAvx2Stress _avx2Stress = new();
     private readonly AggressiveAvx512Stress _avx512Stress = new();
@@ -194,9 +189,9 @@ public class StressTestService : IStressTestService, IDisposable
         {
             switch (algorithm)
             {
-                case "AVX2 1T":
-                case "AVX2 nT":
-                    RunAvx2Stress(coreIndex, token);
+                case "AVX2 Mixed 1T":
+                case "AVX2 Mixed nT":
+                    RunAvx2MixedStress(coreIndex, token);
                     break;
                 case "AVX2 Compute 1T":
                 case "AVX2 Compute nT":
@@ -206,9 +201,9 @@ public class StressTestService : IStressTestService, IDisposable
                 case "AVX2 FP64 nT":
                     RunAvx2Fp64(coreIndex, token);
                     break;
-                case "AVX512 1T":
-                case "AVX512 nT":
-                    RunAvx512Stress(coreIndex, token);
+                case "AVX512 Mixed 1T":
+                case "AVX512 Mixed nT":
+                    RunAvx512MixedStress(coreIndex, token);
                     break;
                 case "AVX512 Compute 1T":
                 case "AVX512 Compute nT":
@@ -219,7 +214,7 @@ public class StressTestService : IStressTestService, IDisposable
                     RunAvx512Fp64(coreIndex, token);
                     break;
                 default:
-                    RunAvx2Stress(coreIndex, token);
+                    RunAvx2MixedStress(coreIndex, token);
                     break;
             }
         }
@@ -246,11 +241,11 @@ public class StressTestService : IStressTestService, IDisposable
         return ThreadAffinity.Set(affinity);
     }
 
-    private void RunAvx2Stress(int coreIndex, CancellationToken token)
+    private void RunAvx2MixedStress(int coreIndex, CancellationToken token)
     {
         try
         {
-            _avx2Stress.RunStress(coreIndex, token);
+            _avx2Stress.RunMixedStress(coreIndex, token);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -309,7 +304,7 @@ public class StressTestService : IStressTestService, IDisposable
         }
     }
 
-    private void RunAvx512Stress(int coreIndex, CancellationToken token)
+    private void RunAvx512MixedStress(int coreIndex, CancellationToken token)
     {
         if (!Avx512F.IsSupported)
         {
@@ -326,7 +321,7 @@ public class StressTestService : IStressTestService, IDisposable
 
         try
         {
-            _avx512Stress.RunStress(coreIndex, token);
+            _avx512Stress.RunMixedStress(coreIndex, token);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -399,78 +394,6 @@ public class StressTestService : IStressTestService, IDisposable
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            Interlocked.Increment(ref _totalErrorCount);
-            var errorMsg = $"Thread {coreIndex}: Critical error - {ex.GetType().Name}: {ex.Message}";
-            _progressSubject.OnNext(new StressTestProgress(
-                coreIndex,
-                Environment.ProcessorCount,
-                true,
-                errorMsg,
-                _totalErrorCount,
-                errorMsg));
-        }
-    }
-
-    private unsafe void RunMemoryChaseStress(int coreIndex, CancellationToken token)
-    {
-        // Allocate buffer >> L3 cache size to ensure cache misses
-        int elementCount = MemoryChaseBufferSize / sizeof(long);
-        var buffer = new long[elementCount];
-
-        // Initialize as shuffled pointer-chase chain
-        // Each element contains the index of the next element to visit
-        var indices = new int[elementCount];
-        for (int i = 0; i < elementCount; i++)
-            indices[i] = i;
-
-        // Fisher-Yates shuffle to create random chase pattern
-        for (int i = elementCount - 1; i > 0; i--)
-        {
-            int j = RandomNumberGenerator.GetInt32(i + 1);
-            (indices[i], indices[j]) = (indices[j], indices[i]);
-        }
-
-        // Build the pointer chain: buffer[indices[i]] points to indices[i+1]
-        for (int i = 0; i < elementCount - 1; i++)
-        {
-            buffer[indices[i]] = indices[i + 1];
-        }
-        buffer[indices[elementCount - 1]] = indices[0]; // Complete the cycle
-
-        try
-        {
-            long index = indices[0];
-            long accumulator = 0;
-
-            while (!token.IsCancellationRequested)
-            {
-                // Memory stress: follow N pointer hops (causes cache misses)
-                for (int hop = 0; hop < MemoryChaseHopsPerBurst; hop++)
-                {
-                    index = buffer[index];
-                    // CPU stress: do some arithmetic on loaded values
-                    accumulator += index;
-                    accumulator ^= (accumulator << 13);
-                    accumulator ^= (accumulator >> 7);
-                    accumulator ^= (accumulator << 17);
-                }
-
-                // Brief sleep for duty cycle (moderate load, not 100%)
-                Thread.Sleep(MemoryChaseSleepMs);
-
-                token.ThrowIfCancellationRequested();
-            }
-
-            // Use accumulator to prevent compiler optimization
-            GC.KeepAlive(accumulator);
-        }
-        catch (OperationCanceledException)
-        {
-            // Normal cancellation - expected when test duration elapses
-        }
-        catch (Exception ex)
-        {
-            // Hardware fault or other critical error
             Interlocked.Increment(ref _totalErrorCount);
             var errorMsg = $"Thread {coreIndex}: Critical error - {ex.GetType().Name}: {ex.Message}";
             _progressSubject.OnNext(new StressTestProgress(
