@@ -1,4 +1,4 @@
-<img width="1024" height="1024" alt="CoreRipperX_logo" src="https://github.com/user-attachments/assets/701db94f-0dc2-4f53-84fb-613ad0b65a52" />
+<img width="1024" height="680" alt="CoreRipperX_logo" src="https://github.com/user-attachments/assets/265bebf7-bc39-49f7-9e2a-a177b6990b7a" />
 
 # CoreRipperX
 
