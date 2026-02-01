@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
@@ -231,8 +230,9 @@ public class AggressiveAvx2Stress : IDisposable
         sum = Avx.Add(sum, aA); sum = Avx.Add(sum, aB);
         sum = Avx.Add(sum, aC); sum = Avx.Add(sum, aD);
         sum = Avx.Add(sum, aE); sum = Avx.Add(sum, aF);
+
         if (Avx.MoveMask(Avx.Compare(sum, sum, FloatComparisonMode.UnorderedNonSignaling)) != 0)
-            throw new Exception("Computation error");
+            throw new Exception("AVX2 Computation error");
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)] // Prevent over-optimization

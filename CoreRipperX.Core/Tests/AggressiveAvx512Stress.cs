@@ -9,7 +9,6 @@ namespace CoreRipperX.Core.Tests;
 public class AggressiveAvx512Stress : IDisposable
 {
     private const int BufferSize = 64 * 1024 * 1024; // 64 MB - larger for 512-bit ops
-    private const int VectorCount = BufferSize / 64; // 64 bytes per Vector512
 
     private readonly ThreadLocal<AlignedBuffer> _threadBuffers;
     private int _jitWarmed;
@@ -198,7 +197,7 @@ public class AggressiveAvx512Stress : IDisposable
         sum = Avx512F.Add(sum, a10); sum = Avx512F.Add(sum, a11);
 
         var nanCheck = Avx512F.CompareEqual(sum, sum);
-        if (nanCheck != Vector512<double>.AllBitsSet)
+        if (nanCheck.AsInt64() != Vector512<long>.AllBitsSet)
             throw new Exception("AVX-512 computation error detected");
     }
 
@@ -275,6 +274,7 @@ public class AggressiveAvx512Stress : IDisposable
                 token.ThrowIfCancellationRequested();
         }
 
+        // Prevent DCE
         var sum = Avx512F.Add(a00, a01);
         sum = Avx512F.Add(sum, a02); sum = Avx512F.Add(sum, a03);
         sum = Avx512F.Add(sum, a04); sum = Avx512F.Add(sum, a05);
@@ -289,7 +289,7 @@ public class AggressiveAvx512Stress : IDisposable
         sum = Avx512F.Add(sum, a22); sum = Avx512F.Add(sum, a23);
 
         var nanCheck = Avx512F.CompareEqual(sum, sum);
-        if (nanCheck != Vector512<float>.AllBitsSet)
+        if (nanCheck.AsInt32() != Vector512<int>.AllBitsSet)
             throw new Exception("AVX-512 computation error detected");
     }
 
