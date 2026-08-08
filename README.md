@@ -1,3 +1,5 @@
+<img width="1024" height="680" alt="CoreRipperX_logo" src="https://github.com/user-attachments/assets/265bebf7-bc39-49f7-9e2a-a177b6990b7a" />
+
 # CoreRipperX
 
 A CPU stress-testing tool for evaluating core performance and stability using AVX2/AVX-512 operations.
